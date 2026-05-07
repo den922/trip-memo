@@ -1,0 +1,1191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Trip Memo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<style>
+:root {
+  --bg:#F6F5F1;--surface:#FFFFFF;--surface-2:#F0EDE7;--border:#E2DDD5;
+  --text:#1A1916;--text-2:#5C574F;--text-3:#9C9488;
+  --accent:#2B4A3A;--accent-mid:#3D6B55;--accent-light:#E8F2EC;--accent-glow:rgba(43,74,58,0.12);
+  --gold:#C9A84C;--danger:#9B3A2F;--danger-light:#FDF0EE;
+  --visited-bg:#E8F2EC;--visited-fg:#2B4A3A;--want-line:#7AAF8E;
+  --radius-sm:8px;--radius:14px;
+  --shadow-sm:0 1px 4px rgba(26,25,22,0.07);
+  --shadow-lg:0 12px 48px rgba(26,25,22,0.13),0 4px 12px rgba(26,25,22,0.07);
+  --t:0.22s cubic-bezier(0.4,0,0.2,1);--t-spring:0.38s cubic-bezier(0.34,1.56,0.64,1);
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);display:flex;flex-direction:column;color:var(--text);}
+.header{background:var(--accent);padding:0 18px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative;z-index:10;}
+.header-left{display:flex;align-items:baseline;gap:8px;}
+.header-title{font-family:'Playfair Display',serif;font-weight:700;font-size:20px;color:#fff;letter-spacing:0.06em;}
+.header-sub{font-size:10px;color:rgba(255,255,255,0.45);font-family:'JetBrains Mono',monospace;letter-spacing:0.14em;}
+.header-right{display:flex;align-items:center;gap:6px;}
+.header-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.1);padding:3px 10px;border-radius:20px;}
+.hbtn{background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.8);width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:background var(--t);}
+.hbtn:active{background:rgba(255,255,255,0.24);}
+.header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),transparent 55%);}
+.stats-bar{background:var(--accent-light);border-bottom:1px solid #CFDFD5;padding:0 18px;display:flex;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.stats-bar::-webkit-scrollbar{display:none;}
+.stat-item{display:flex;flex-direction:column;align-items:center;padding:9px 16px;flex-shrink:0;}
+.stat-num{font-family:'Playfair Display',serif;font-size:20px;font-weight:500;color:var(--accent);line-height:1;}
+.stat-lbl{font-size:10px;color:var(--accent-mid);letter-spacing:0.08em;margin-top:2px;white-space:nowrap;}
+.stat-div{width:1px;background:#C8DDD2;margin:10px 0;align-self:stretch;}
+.tabs{background:var(--surface);border-bottom:1px solid var(--border);display:flex;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab-btn{flex-shrink:0;background:none;border:none;padding:12px 16px;font-family:'Noto Sans JP',sans-serif;font-size:12.5px;color:var(--text-3);letter-spacing:0.05em;cursor:pointer;position:relative;transition:color var(--t);white-space:nowrap;}
+.tab-btn.active{color:var(--accent);font-weight:700;}
+.tab-btn.active::after{content:'';position:absolute;bottom:0;left:12px;right:12px;height:2px;background:var(--accent);border-radius:2px;}
+.top-bar{background:var(--surface);border-bottom:1px solid var(--border);display:none;flex-shrink:0;}
+.top-bar.visible{display:flex;align-items:center;gap:8px;padding:8px 14px;overflow:hidden;}
+.search-inner{flex:1;min-width:0;display:flex;align-items:center;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:0 12px;gap:8px;transition:border-color var(--t),box-shadow var(--t);}
+.search-inner:focus-within{border-color:var(--accent-mid);box-shadow:0 0 0 3px var(--accent-glow);background:var(--surface);}
+.search-inner input{flex:1;min-width:0;padding:9px 0;border:none;background:transparent;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);outline:none;-webkit-appearance:none;}
+.search-inner input::placeholder{color:var(--text-3);}
+.search-clear{width:20px;height:20px;border:none;background:var(--text-3);color:#fff;border-radius:50%;font-size:11px;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0;}
+.search-clear.visible{display:flex;}
+.filter-btn{flex-shrink:0;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;width:38px;height:38px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);transition:all var(--t);position:relative;}
+.filter-btn.has-filter{background:var(--accent-light);border-color:var(--accent-mid);color:var(--accent);}
+.filter-badge{background:var(--accent);color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;display:flex;align-items:center;justify-content:center;position:absolute;top:-4px;right:-4px;}
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 96px;}
+.content::-webkit-scrollbar{width:4px;}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+#mapWrap{flex:1;display:none;position:relative;}
+#mapWrap.visible{display:block;}
+#leafletMap{width:100%;height:100%;}
+.map-legend{position:absolute;bottom:16px;right:14px;background:rgba(255,255,255,0.92);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:11px;z-index:1000;display:flex;flex-direction:column;gap:5px;}
+.legend-item{display:flex;align-items:center;gap:6px;color:var(--text-2);}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.empty{text-align:center;padding:72px 24px;}
+.empty-icon{font-size:48px;margin-bottom:14px;opacity:0.22;display:block;}
+.empty-title{font-family:'Playfair Display',serif;font-size:19px;color:var(--text-2);margin-bottom:8px;}
+.empty-sub{font-size:13.5px;color:var(--text-3);line-height:1.75;white-space:pre-line;}
+.swipe-wrap{position:relative;overflow:hidden;margin-bottom:8px;border-radius:var(--radius);}
+.delete-bg{position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border-radius:var(--radius);gap:4px;flex-direction:column;cursor:pointer;opacity:0;pointer-events:none;transition:opacity 0.15s;}
+.swipe-wrap.is-swiping .delete-bg{opacity:1;pointer-events:auto;}
+.delbg-icon{font-size:20px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px 13px 18px;cursor:pointer;position:relative;z-index:1;box-shadow:var(--shadow-sm);user-select:none;transition:box-shadow var(--t),transform 0.18s ease;}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:var(--radius) 0 0 var(--radius);background:transparent;}
+.card.must::before{background:var(--accent);}
+.card.want::before{background:var(--want-line);}
+.card.vis{opacity:0.75;}
+.card.vis::before{background:transparent !important;}
+.card:active{transform:scale(0.986);box-shadow:none;}
+.card-row1{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:5px;gap:8px;}
+.card-name{font-size:15px;font-weight:700;color:var(--text);line-height:1.35;flex:1;min-width:0;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card-badges{display:flex;gap:4px;align-items:center;flex-shrink:0;flex-wrap:wrap;justify-content:flex-end;}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10.5px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.b-type{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);}
+.b-vis{background:var(--visited-bg);color:var(--visited-fg);border:1px solid #CFDFD5;}
+.b-unvis{background:var(--surface-2);color:var(--text-3);border:1px solid var(--border);}
+.b-must{background:var(--accent);color:#fff;border:none;font-size:10px;}
+.b-want{background:var(--accent-light);color:var(--accent-mid);border:1px solid #CFDFD5;font-size:10px;}
+.b-bkup{background:transparent;color:var(--accent-mid);border:none;font-size:10px;opacity:0.6;}
+.card-row2{display:flex;align-items:center;gap:6px;margin-bottom:5px;flex-wrap:wrap;}
+.card-area{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-3);letter-spacing:0.04em;}
+.card-sub{font-size:10px;color:var(--text-3);}
+.card-dot{width:2px;height:2px;border-radius:50%;background:var(--border);}
+.card-memo{font-size:12.5px;color:var(--text-2);line-height:1.6;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden;font-weight:300;}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.tag{font-size:11px;color:var(--accent-mid);background:var(--accent-light);padding:2px 7px;border-radius:12px;}
+.sa-section{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+.sa-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;}
+.sa-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:7px 11px;margin:0 6px 6px 0;font-size:13px;cursor:pointer;transition:background var(--t);}
+.sa-chip:active{background:var(--border);}
+.sa-name{color:var(--text);font-weight:500;}
+.sa-sub{font-size:10px;color:var(--text-3);}
+.sec-head{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--accent);margin:4px 0 12px;display:flex;align-items:center;justify-content:space-between;}
+.sec-action{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:400;color:var(--accent-mid);cursor:pointer;}
+.crs-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow-sm);}
+.crs-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.crs-desc{font-size:12.5px;color:var(--text-2);font-weight:300;margin-bottom:10px;}
+.crs-tl{border-left:2px solid var(--accent-light);padding-left:14px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.tl-day{position:relative;}
+.tl-day::before{content:'';position:absolute;left:-18px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--accent-mid);border:2px solid var(--surface);}
+.tl-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent-mid);letter-spacing:0.1em;text-transform:uppercase;}
+.tl-name{font-size:13.5px;font-weight:500;color:var(--text);margin:1px 0;}
+.tl-memo{font-size:12px;color:var(--text-3);font-weight:300;}
+.crs-spots{display:flex;flex-wrap:wrap;gap:5px;}
+.crs-chip{font-size:11px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);padding:3px 9px;border-radius:20px;}
+.rec-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent-mid);border-radius:var(--radius);padding:14px 15px;margin-bottom:8px;display:flex;align-items:flex-start;box-shadow:var(--shadow-sm);}
+.rec-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:500;color:var(--border);line-height:1;margin-right:12px;flex-shrink:0;min-width:32px;}
+.rec-body{flex:1;min-width:0;}
+.rec-name{font-size:14.5px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.rec-reason{font-size:12.5px;color:var(--text-2);line-height:1.65;font-weight:300;}
+.rec-trend{font-size:11.5px;color:var(--accent-mid);margin-top:6px;}
+.rec-save{flex-shrink:0;margin-left:10px;padding:6px 12px;background:var(--accent-light);color:var(--accent);border:1px solid #CFDFD5;border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap;}
+.rec-save:active{background:#CFDFD5;}
+.fab-wrap{position:fixed;right:18px;bottom:26px;z-index:100;display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+.fab{width:54px;height:54px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 6px 24px rgba(43,74,58,0.38);display:flex;align-items:center;justify-content:center;transition:transform var(--t-spring);}
+.fab:active{transform:scale(0.9);}
+.fab-c{width:42px;height:42px;font-size:18px;background:var(--gold);box-shadow:0 4px 16px rgba(201,168,76,0.35);}
+.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:rgba(255,255,255,0.9);padding:12px 16px;border-radius:12px;display:flex;gap:12px;align-items:center;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;font-size:13.5px;z-index:500;box-shadow:var(--shadow-lg);}
+.toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+.t-undo{background:none;border:1px solid rgba(255,255,255,0.25);color:#fff;font-weight:600;font-size:12px;cursor:pointer;padding:4px 10px;border-radius:6px;font-family:'Noto Sans JP',sans-serif;}
+.overlay{position:fixed;inset:0;background:rgba(26,25,22,0.42);backdrop-filter:blur(3px);-webkit-backdrop-filter:blur(3px);opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:300;}
+.overlay.show{opacity:1;pointer-events:auto;}
+.sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:22px 22px 0 0;padding:0 20px 44px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateY(100%);transition:transform 0.38s cubic-bezier(0.32,0.72,0,1);z-index:400;}
+.sheet.show{transform:translateY(0);}
+.sheet::-webkit-scrollbar{width:3px;}
+.sheet::-webkit-scrollbar-thumb{background:var(--border);}
+.sh-handle{width:36px;height:4px;background:var(--border);border-radius:2px;margin:14px auto 16px;}
+.sh-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:20px;}
+.sh-title{font-family:'Playfair Display',serif;font-size:18px;font-weight:700;color:var(--text);}
+.sh-close{background:var(--surface-2);border:1px solid var(--border);width:30px;height:30px;border-radius:50%;font-size:13px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);font-family:inherit;}
+.sh-close:active{background:var(--border);}
+.fs-sec{margin-bottom:20px;}
+.fs-lbl{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:9px;}
+.fs-chips{display:flex;flex-wrap:wrap;gap:7px;}
+.fs-chip{padding:7px 14px;border-radius:20px;font-size:13px;font-family:'Noto Sans JP',sans-serif;border:1.5px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;transition:all var(--t);}
+.fs-chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.fs-sort{display:flex;flex-direction:column;gap:6px;}
+.fs-sitem{display:flex;align-items:center;gap:10px;padding:11px 14px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);cursor:pointer;font-size:14px;color:var(--text-2);transition:all var(--t);}
+.fs-sitem.on{border-color:var(--accent-mid);background:var(--accent-light);color:var(--accent);}
+.fs-reset{width:100%;padding:12px;background:var(--surface-2);border:1px solid var(--border);border-radius:var(--radius);font-family:'Noto Sans JP',sans-serif;font-size:14px;color:var(--text-3);cursor:pointer;margin-top:4px;}
+.fs-reset:active{background:var(--border);}
+.vw-date{font-family:'JetBrains Mono',monospace;font-size:11px;color:var(--text-3);letter-spacing:0.06em;display:flex;align-items:center;gap:8px;}
+.vw-date::before{content:'';display:inline-block;width:20px;height:1.5px;background:var(--gold);border-radius:1px;}
+.vw-name{font-family:'Playfair Display',serif;font-size:26px;font-weight:700;color:var(--text);margin-bottom:4px;line-height:1.3;}
+.vw-meta{display:flex;gap:6px;flex-wrap:wrap;margin-bottom:14px;}
+.vw-body{font-size:14.5px;line-height:1.85;color:var(--text-2);white-space:pre-wrap;word-break:break-word;font-weight:300;border-top:1px solid var(--border);padding-top:14px;}
+.vw-tags{display:flex;flex-wrap:wrap;gap:5px;margin-top:14px;}
+.vw-actions{display:flex;flex-direction:column;gap:8px;margin-top:24px;}
+.vw-actions-sub{display:flex;gap:8px;}
+.btn-edit{width:100%;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:500;cursor:pointer;}
+.btn-edit:active{background:#1E3A2B;transform:scale(0.97);}
+.btn-tog{flex:1;padding:13px 12px;background:var(--accent-light);color:var(--accent);border:1px solid #CFDFD5;border-radius:var(--radius);font-family:'Noto Sans JP',sans-serif;font-size:13px;cursor:pointer;text-align:center;}
+.btn-tog:active{transform:scale(0.97);}
+.btn-del{padding:13px 14px;background:var(--danger-light);color:var(--danger);border:1px solid rgba(155,58,47,0.15);border-radius:var(--radius);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;}
+.btn-del:active{transform:scale(0.97);}
+.field{margin-bottom:15px;}
+.field label{display:block;font-size:10px;font-weight:700;color:var(--text-3);margin-bottom:6px;letter-spacing:0.1em;text-transform:uppercase;font-family:'JetBrains Mono',monospace;}
+.field input,.field textarea,.field select{display:block;width:100%;padding:11px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:var(--surface-2);outline:none;-webkit-appearance:none;resize:none;transition:border-color var(--t),background var(--t),box-shadow var(--t);}
+.field input:focus,.field textarea:focus,.field select:focus{border-color:var(--accent-mid);background:var(--surface);box-shadow:0 0 0 3px var(--accent-glow);}
+.field textarea{height:90px;line-height:1.7;font-size:15px;font-weight:300;}
+.field-row{display:grid;grid-template-columns:1fr 1fr;gap:10px;}
+.field-wb{display:flex;gap:8px;}
+.field-wb input{flex:1;}
+.geo-btn{flex-shrink:0;padding:0 14px;background:var(--accent-light);color:var(--accent);border:1.5px solid #CFDFD5;border-radius:var(--radius-sm);font-size:12px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap;}
+.geo-btn:active{background:#CFDFD5;}
+.geo-btn:disabled{opacity:0.5;cursor:not-allowed;}
+.geo-results{margin-top:6px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden;}
+.geo-item{padding:10px 13px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;}
+.geo-item:last-child{border-bottom:none;}
+.geo-item:active{background:var(--accent-light);}
+.geo-item-name{font-weight:500;color:var(--text);}
+.geo-item-addr{font-size:11px;color:var(--text-3);margin-top:2px;}
+.err-msg{color:var(--danger);font-size:12px;margin-bottom:12px;display:none;align-items:center;gap:6px;background:var(--danger-light);padding:10px 13px;border-radius:8px;border:1px solid rgba(155,58,47,0.15);}
+.err-msg.show{display:flex;}
+.btn-save{width:100%;padding:14px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'Noto Sans JP',sans-serif;font-size:15px;font-weight:700;cursor:pointer;box-shadow:0 4px 16px var(--accent-glow);margin-top:4px;}
+.btn-save:active{transform:scale(0.98);background:#1E3A2B;}
+.checklist{border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);max-height:180px;overflow-y:auto;}
+.cl-item{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--border);cursor:pointer;}
+.cl-item:last-child{border-bottom:none;}
+.cl-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);}
+.cl-name{font-size:14px;color:var(--text);flex:1;}
+.cl-area{font-size:11px;color:var(--text-3);}
+.set-sec{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:9px;}
+.set-desc{font-size:12.5px;color:var(--text-3);line-height:1.7;margin-bottom:13px;}
+.set-hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
+.btn-row{display:flex;gap:10px;}
+.btn-sub{flex:1;padding:13px;background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);border-radius:var(--radius);font-family:'Noto Sans JP',sans-serif;font-size:14px;cursor:pointer;text-align:center;}
+.btn-sub:active{background:var(--border);transform:scale(0.97);}
+.btn-exp{flex:1;padding:13px;background:var(--accent);color:#fff;border:none;border-radius:var(--radius);font-family:'Noto Sans JP',sans-serif;font-size:14px;font-weight:700;cursor:pointer;text-align:center;box-shadow:0 4px 14px var(--accent-glow);}
+.btn-exp:active{background:#1E3A2B;transform:scale(0.97);}
+.btn-exp:disabled{opacity:0.5;cursor:not-allowed;transform:none;}
+mark.hl{background:#FFF5C2;color:var(--text);border-radius:2px;padding:0 1px;}
+@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
+.dots span{animation:pulse 1.4s ease-in-out infinite;display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-mid);margin:0 2px;}
+.dots span:nth-child(2){animation-delay:0.2s;}
+.dots span:nth-child(3){animation-delay:0.4s;}
+.leaflet-popup-content-wrapper{border-radius:10px;box-shadow:var(--shadow-lg);font-family:'Noto Sans JP',sans-serif;}
+.leaflet-popup-content{margin:12px 16px;font-size:13px;}
+.vw-date-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;}
+.stars{display:flex;gap:4px;}
+.star{font-size:22px;cursor:pointer;line-height:1;transition:transform 0.15s;color:#D4CFC8;}
+.star.on{color:var(--gold);}
+.star:active{transform:scale(1.25);}
+.map-search-bar{position:absolute;top:10px;left:50px;right:10px;z-index:1000;background:rgba(255,255,255,0.97);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;padding:0 10px;gap:6px;box-shadow:var(--shadow-sm);}
+.map-search-bar input{flex:1;min-width:0;padding:9px 0;border:none;background:transparent;font-family:'Noto Sans JP',sans-serif;font-size:15px;color:var(--text);outline:none;-webkit-appearance:none;}
+.map-search-bar input::placeholder{color:var(--text-3);}
+.map-search-bar button{background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-2);padding:4px;flex-shrink:0;}
+.map-search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:rgba(255,255,255,0.98);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow-lg);display:none;z-index:1001;}
+.map-search-results.visible{display:block;}
+.map-sr-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;transition:background var(--t);}
+.map-sr-item:last-child{border-bottom:none;}
+.map-sr-item:active{background:var(--accent-light);}
+.map-sr-name{font-weight:500;color:var(--text);}
+.map-sr-addr{font-size:11px;color:var(--text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.pp-name{font-weight:700;color:var(--text);font-size:14px;margin-bottom:4px;}
+.pp-meta{color:var(--text-3);font-size:11px;margin-bottom:4px;}
+.pp-memo{color:var(--text-2);font-size:12px;line-height:1.5;font-weight:300;}
+.map-toolbar{position:absolute;bottom:16px;left:14px;z-index:1000;display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.map-tog{background:rgba(255,255,255,0.95);border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;color:var(--text-2);cursor:pointer;box-shadow:var(--shadow-sm);transition:all var(--t);white-space:nowrap;display:flex;align-items:center;gap:4px;justify-content:center;}
+.map-tog.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.map-tog:active{transform:scale(0.95);}
+.map-reset-btn{position:absolute;bottom:16px;right:14px;z-index:1000;background:rgba(255,255,255,0.95);border:1.5px solid var(--border);border-radius:8px;width:36px;height:36px;font-size:16px;cursor:pointer;box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center;transition:all var(--t);}
+.map-reset-btn:active{transform:scale(0.95);}
+.route-legend{position:absolute;right:14px;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:10px;font-size:11px;z-index:1000;display:none;flex-direction:column;box-shadow:var(--shadow-sm);overflow:hidden;min-width:148px;}
+.route-legend.visible{display:flex;}
+.legend-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border);gap:12px;cursor:pointer;user-select:none;}
+.legend-header:active{background:var(--surface-2);}
+.legend-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.08em;text-transform:uppercase;}
+.legend-toggle{width:20px;height:20px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;font-size:12px;color:var(--text-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;line-height:1;}
+.legend-body{padding:6px 10px 10px;display:flex;flex-direction:column;gap:5px;max-height:42vh;overflow-y:auto;}
+.legend-body::-webkit-scrollbar{width:3px;}
+.legend-body::-webkit-scrollbar-thumb{background:var(--border);}
+.legend-body.collapsed{display:none;}
+.rl-item{display:flex;align-items:center;gap:7px;color:var(--text-2);}
+.rl-line{width:22px;height:4px;border-radius:2px;flex-shrink:0;}
+</style>
+</head>
+<body>
+<div class="header">
+  <div class="header-left">
+    <span class="header-title">Trip Memo</span>
+    <span class="header-sub">NOTEBOOK</span>
+  </div>
+  <div class="header-right">
+    <span class="header-count" id="hCount">0 件</span>
+    <button class="hbtn" id="settingsBtn">&#9881;</button>
+  </div>
+</div>
+<div class="stats-bar" id="statsBar"></div>
+<div class="tabs">
+  <button class="tab-btn active" data-tab="list">&#128203; リスト</button>
+  <button class="tab-btn" data-tab="map">&#128506; マップ</button>
+  <button class="tab-btn" data-tab="courses">&#128739; コース</button>
+  <button class="tab-btn" data-tab="recommend">&#10024; おすすめ</button>
+</div>
+<div class="top-bar" id="topBar">
+  <div class="search-inner">
+    <span style="font-size:13px;color:var(--text-3)">&#128269;</span>
+    <input id="searchInput" placeholder="名前・タグ・エリアで検索..." autocomplete="off" inputmode="search">
+    <button class="search-clear" id="searchClear">&#10005;</button>
+  </div>
+  <button class="filter-btn" id="filterBtn" title="絞り込み・並び替え">&#9776;<span class="filter-badge" id="filterBadge" style="display:none">0</span></button>
+</div>
+<div class="content" id="content"></div>
+<div id="mapWrap">
+  <div id="leafletMap"></div>
+  <div class="map-toolbar">
+    <button class="map-tog" id="modeBtn0" data-mode="0">&#128506; 全国高速</button>
+    <button class="map-tog" id="modeBtn1" data-mode="1">&#128313; 東日本高速</button>
+    <button class="map-tog" id="modeBtn2" data-mode="2">&#128308; 西日本高速</button>
+    <button class="map-tog" id="modeBtn3" data-mode="3">&#128645; 新幹線</button>
+  </div>
+  <button class="map-reset-btn" id="mapResetBtn" title="ホームに戻る">&#127968;</button>
+  <div class="map-search-bar" id="mapSearchBar">
+    <input type="text" id="mapSearchInput" placeholder="地名・施設名で地図移動..." autocomplete="off">
+    <button id="mapSearchBtn">&#128269;</button>
+    <div class="map-search-results" id="mapSearchResults"></div>
+  </div>
+  <div class="map-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2B4A3A"></div>訪問済み</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7AAF8E"></div>行きたい</div>
+  </div>
+  <div class="route-legend" id="routeLegend">
+    <div class="legend-header" id="routeLegendHeader"><span class="legend-title" id="routeLegendTitle">路線</span><span class="legend-toggle" id="routeLegendToggle">&#8722;</span></div>
+    <div class="legend-body" id="routeLegendBody"></div>
+  </div>
+</div>
+<div class="fab-wrap">
+  <button class="fab fab-c" id="fabC" style="display:none">&#128739;</button>
+  <button class="fab" id="fab">&#65291;</button>
+</div>
+<div class="toast" id="toast">
+  <span id="toastTxt"></span>
+  <button class="t-undo" id="toastUndo" style="display:none">元に戻す</button>
+</div>
+<input type="file" id="importFile" accept=".json" style="display:none">
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet">
+  <div class="sh-handle"></div>
+  <div id="sheetContent"></div>
+</div>
+<script>
+(function(){
+'use strict';
+var KS='tripmemo_spots_v1', KC='tripmemo_courses_v1', KN='tripmemo_nas_v1', MG=10;
+var AREAS=['北海道','東北','関東甲信越','北陸・東海','近畿','中国・四国','九州・沖縄','海外'];
+var TYPES=['観光','宿泊','グルメ','体験'];
+
+var PRIOS=[{k:'must',l:'MUST',d:'絶対行きたい'},{k:'want',l:'WANT',d:'とても行きたい'},{k:'wish',l:'WISH',d:'行きたい'}];
+var SORTS=[{k:'added',l:'追加順',i:'&#128336;'},{k:'area',l:'エリア順',i:'&#127758;'},{k:'prio',l:'行きたい度順',i:'&#128204;'},{k:'visited',l:'未訪問を上に',i:'&#9711;'}];
+var S={
+  spots:[],courses:[],tab:'list',
+  fArea:'all',fType:'all',fVis:'all',fPrio:'all',sort:'added',
+  lastDel:null,toastT:null,
+  sw:{el:null,x0:0,x1:0,y0:0,moved:false},
+  recData:[],recLoad:false,
+  map:null,cluster:null,mapMode:null,routeLines:[],fStar:'all'
+};
+function uuid(){return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g,function(c){var r=Math.random()*16|0;return(c==='x'?r:(r&0x3|0x8)).toString(16);});}
+function nowStr(){var d=new Date();return [d.getFullYear(),p2(d.getMonth()+1),p2(d.getDate())].join('-')+'_'+p2(d.getHours())+p2(d.getMinutes());}
+function p2(n){return String(n).padStart(2,'0');}
+function esc(s){return String(s||'').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');}
+function hl(str,q){var e=esc(str);if(!q)return e;return e.replace(new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g,'\\$&'),'gi'),function(m){return '<mark class="hl">'+m+'</mark>';});}
+function loadData(){
+  try{S.spots=JSON.parse(localStorage.getItem(KS)||'[]');}catch(e){S.spots=[];}
+  try{S.courses=JSON.parse(localStorage.getItem(KC)||'[]');}catch(e){S.courses=[];}
+  // no demo data - start empty
+}
+function save(){try{localStorage.setItem(KS,JSON.stringify(S.spots));}catch(e){}}
+function saveC(){try{localStorage.setItem(KC,JSON.stringify(S.courses));}catch(e){}}
+function loadNas(){try{return JSON.parse(localStorage.getItem(KN)||'null');}catch(e){return null;}}
+function saveNas(c){try{localStorage.setItem(KN,JSON.stringify(c));}catch(e){}}
+function filtered(){
+  var q=(document.getElementById('searchInput')||{value:''}).value.trim().toLowerCase();
+  return S.spots.filter(function(s){
+    if(S.fArea!=='all'&&s.area!==S.fArea)return false;
+    if(S.fType!=='all'&&s.type!==S.fType)return false;
+    if(S.fVis==='visited'&&!s.visited)return false;
+    if(S.fVis==='unvisited'&&s.visited)return false;
+    if(S.fPrio!=='all'&&(s.prio||'wish')!==S.fPrio)return false;
+    if(S.fStar!=='all'){if(!s.visited)return false;if(String(s.rating||0)!==S.fStar)return false;}
+    if(q){var h=[s.name,s.area,s.pref,s.memo,s.addr].concat(s.tags||[]).join(' ').toLowerCase();if(h.indexOf(q)===-1)return false;}
+    return true;
+  });
+}
+function sortItems(arr){
+  var a=arr.slice(), po={must:0,want:1,wish:2};
+  if(S.sort==='area')a.sort(function(x,y){return (x.area||'').localeCompare(y.area||'','ja');});
+  else if(S.sort==='prio')a.sort(function(x,y){return (po[x.prio]||2)-(po[y.prio]||2);});
+  else if(S.sort==='visited')a.sort(function(x,y){return x.visited===y.visited?0:(x.visited?1:-1);});
+  return a;
+}
+function fCount(){var n=0;if(S.fArea!=='all')n++;if(S.fType!=='all')n++;if(S.fVis!=='all')n++;if(S.fPrio!=='all')n++;if(S.fStar!=='all')n++;return n;}
+function renderStats(){
+  var tot=S.spots.length, vis=0, must=0, areas=[];
+  S.spots.forEach(function(s){
+    if(s.visited)vis++;
+    if(!s.visited&&s.prio==='must')must++;
+    if(areas.indexOf(s.area)===-1)areas.push(s.area);
+  });
+  document.getElementById('statsBar').innerHTML=
+    si(tot,'スポット')+sd()+si(vis,'訪問済み')+sd()+si(tot-vis,'行きたい')+sd()+si(must,'MUST')+sd()+si(S.courses.length,'コース')+sd()+si(areas.length,'エリア');
+  document.getElementById('hCount').textContent=tot+' 件';
+}
+function si(n,l){return '<div class="stat-item"><div class="stat-num">'+n+'</div><div class="stat-lbl">'+l+'</div></div>';}
+function sd(){return '<div class="stat-div"></div>';}
+function renderTopBar(){
+  var tb=document.getElementById('topBar'), fc=document.getElementById('fabC');
+  var fab=document.getElementById('fab');
+  if(S.tab==='list'){tb.classList.add('visible');fc.style.display='none';if(fab)fab.style.display='';}
+  else if(S.tab==='courses'){tb.classList.remove('visible');fc.style.display='flex';if(fab)fab.style.display='';}
+  else if(S.tab==='map'){tb.classList.remove('visible');fc.style.display='none';if(fab)fab.style.display='none';}
+  else{tb.classList.remove('visible');fc.style.display='none';if(fab)fab.style.display='';}
+  var n=fCount();
+  var bd=document.getElementById('filterBadge'), fb=document.getElementById('filterBtn');
+  if(bd){bd.style.display=n?'flex':'none';bd.textContent=n;}
+  if(fb)fb.classList.toggle('has-filter',n>0);
+}
+function renderContent(){
+  var cont=document.getElementById('content'), mw=document.getElementById('mapWrap');
+  if(S.tab==='map'){cont.style.display='none';mw.classList.add('visible');renderMap();}
+  else{cont.style.display='';mw.classList.remove('visible');
+    if(S.tab==='list')renderList();
+    else if(S.tab==='courses')renderCourses();
+    else renderRecommend();
+  }
+}
+function renderList(){
+  var q=document.getElementById('searchInput').value.trim();
+  var items=sortItems(filtered());
+  var c=document.getElementById('content');
+  document.getElementById('searchClear').classList.toggle('visible',q.length>0);
+  if(!items.length){
+    c.innerHTML='<div class="empty"><span class="empty-icon">&#128398;</span><div class="empty-title">'+(q||fCount()>0?'条件に合うスポットがありません':'まだスポットがありません')+'</div><div class="empty-sub">'+(q||fCount()>0?'条件を変更してみてください':'右下の ＋ ボタンで\n最初のスポットを追加しましょう')+'</div></div>';
+    return;
+  }
+  S.sw.el=null;
+  var html='';
+  items.forEach(function(s){
+    var oi=S.spots.indexOf(s);
+    var th=(s.tags||[]).map(function(t){return '<span class="tag">#'+esc(t)+'</span>';}).join('');
+    var ph='';
+    if(!s.visited){if(s.prio==='must')ph='<span class="badge b-must">MUST</span>';else if(s.prio==='want')ph='<span class="badge b-want">WANT</span>';}
+    var cc='card'+(s.visited?' vis':s.prio==='must'?' must':s.prio==='want'?' want':'');
+    html+='<div class="swipe-wrap" data-idx="'+oi+'">'+
+      '<div class="delete-bg"><div class="delbg-icon">&#128465;</div>削除</div>'+
+      '<div class="'+cc+'">'+
+        '<div class="card-row1"><div class="card-name">'+hl(s.name,q)+'</div>'+
+        '<div class="card-badges">'+ph+'<span class="badge '+(s.visited?'b-vis':'b-unvis')+'">'+(s.visited?'&#10003; 訪問済':'&#9711; 行きたい')+'</span>'+
+        '<span class="badge b-type">'+esc(s.type)+'</span>'+(s.exportedAt?'<span class="badge b-bkup">&#10003; bkup</span>':'')+'</div></div>'+
+        '<div class="card-row2"><span class="card-area">'+esc(s.area||'')+'</span>'+
+        (s.pref?'<div class="card-dot"></div><span class="card-sub">'+esc(s.pref)+'</span>':'')+
+
+        '</div>'+(s.memo?'<div class="card-memo">'+hl(s.memo,q)+'</div>':'')+
+        (th?'<div class="card-tags">'+th+'</div>':'')+
+      '</div></div>';
+  });
+  c.innerHTML=html;
+  c.querySelectorAll('.swipe-wrap').forEach(function(w){
+    var oi=parseInt(w.dataset.idx,10);
+    var card=w.querySelector('.card'), bg=w.querySelector('.delete-bg');
+    bg.addEventListener('click',function(){delSpot(oi);});
+    card.addEventListener('click',function(){if(!S.sw.moved)openView(oi);});
+    card.addEventListener('touchstart',function(e){swStart(e,card);},{passive:true});
+    card.addEventListener('touchmove',function(e){swMove(e,card);},{passive:true});
+    card.addEventListener('touchend',function(e){swEnd(e,card);});
+  });
+}
+// ══ 路線定義 ══
+// モード0: 全国高速、モード1: 東日本高速、モード2: 関東高速、モード3: 新幹線
+// tags: 0=全国高速, 1=東日本, 2=関東, 3=新幹線
+
+// ══ Overpass API モード定義 ══
+// ══ 路線カラーマップ（高速道路）E番号 → 路線名・色 ══
+var ROAD_COLORS={
+  'E1':  {name:'東名高速',    color:'#2563EB'},
+  'E1A': {name:'新東名高速',   color:'#60A5FA'},
+  'E2':  {name:'山陽道',     color:'#DC2626'},
+  'E2A': {name:'中国道',     color:'#F87171'},
+  'E3':  {name:'九州道',     color:'#7C3AED'},
+  'E3A': {name:'長崎道',     color:'#A855F7'},
+  'E4':  {name:'東北道',     color:'#059669'},
+  'E4A': {name:'常磐道',     color:'#34D399'},
+  'E6':  {name:'秋田道',     color:'#D97706'},
+  'E7':  {name:'北陸道',     color:'#92400E'},
+  'E8':  {name:'山形道',     color:'#DB2777'},
+  'E10': {name:'東九州道',    color:'#F97316'},
+  'E11': {name:'道央道',     color:'#8B5CF6'},
+  'E14': {name:'館山道',     color:'#0D9488'},
+  'E16': {name:'東関東道',    color:'#6366F1'},
+  'E17': {name:'関越道',     color:'#EA580C'},
+  'E18': {name:'上信越道',    color:'#F59E0B'},
+  'E19': {name:'中央道',     color:'#0891B2'},
+  'E25': {name:'名神',      color:'#BE185D'},
+  'E26': {name:'新名神',     color:'#F9A8D4'},
+  'E32': {name:'高松道',     color:'#84CC16'},
+  'E50': {name:'北関東道',    color:'#FBBF24'},
+  'E66': {name:'山陰道',     color:'#78716C'}
+};
+
+// 新幹線カラーマップ（nameタグ → 路線名・色）
+var SHIN_COLORS={
+  '東海道新幹線':  {name:'東海道新幹線',  color:'#1D4ED8'},
+  '山陽新幹線':   {name:'山陽新幹線',   color:'#3B82F6'},
+  '東北新幹線':   {name:'東北新幹線',   color:'#16A34A'},
+  '北海道新幹線':  {name:'北海道新幹線',  color:'#0891B2'},
+  '上越新幹線':   {name:'上越新幹線',   color:'#DC2626'},
+  '北陸新幹線':   {name:'北陸新幹線',   color:'#EA580C'},
+  '秋田新幹線':   {name:'秋田新幹線',   color:'#7C3AED'},
+  '山形新幹線':   {name:'山形新幹線',   color:'#DB2777'},
+  '九州新幹線':   {name:'九州新幹線',   color:'#D97706'},
+  '西九州新幹線':  {name:'西九州新幹線',  color:'#92400E'}
+};
+
+// 全国高速のrefリスト（モード0,1,2共通ベース）
+var ROAD_REFS_NATIONAL=['E1','E1A','E2','E2A','E3','E3A','E4','E4A','E6','E7','E8','E10','E11','E14','E16','E17','E18','E19','E25','E26','E32','E50','E66'];
+var ROAD_REFS_EAST    =['E1','E1A','E4','E4A','E6','E7','E8','E11','E14','E16','E17','E18','E19','E50'];
+var ROAD_REFS_WEST    =['E1','E1A','E2','E2A','E3','E3A','E10','E25','E26','E32','E66'];
+
+// refリストからOverpassクエリを生成
+function buildRoadQuery(refs, bbox){
+  var ways=refs.map(function(r){
+    return 'way'+bbox+'["highway"="motorway"]["ref"="'+r+'"];';
+  }).join('\n');
+  return '[out:json][timeout:90];\n(\n'+ways+'\n);\nout geom;';
+}
+
+// 東日本bbox: 北海道〜名古屋東側
+var BBOX_EAST   = '(33.0,136.0,46.0,146.0)';
+// 西日本bbox: 名古屋西側〜九州
+var BBOX_WEST   = '(30.0,129.0,36.5,137.5)';
+// 全国bbox
+var BBOX_ALL    = '(24.0,122.0,46.0,146.0)';
+// 新幹線bbox（全国）
+var BBOX_SHIN   = '(24.0,122.0,46.0,146.0)';
+
+var MAP_MODES=[
+  {id:0, label:'全国高速',  icon:'&#128506;', center:[37.0,136.0], zoom:5, type:'road', refs:ROAD_REFS_NATIONAL, bbox:BBOX_ALL},
+  {id:1, label:'東日本高速', icon:'&#128313;', center:[38.0,139.5], zoom:6, type:'road', refs:ROAD_REFS_EAST,     bbox:BBOX_EAST},
+  {id:2, label:'西日本高速', icon:'&#128308;', center:[34.5,133.0], zoom:6, type:'road', refs:ROAD_REFS_WEST,     bbox:BBOX_WEST},
+  {id:3, label:'新幹線',   icon:'&#128645;', center:[37.0,136.0], zoom:5, type:'shin', bbox:BBOX_SHIN}
+];
+
+// キャッシュ
+var ROUTE_CACHE={};
+
+// refタグでwayをグルーピングして色付き描画、凡例HTMLを返す
+function drawRoadLines(data, refs){
+  var groups={};
+  refs.forEach(function(r){groups[r]=[];});
+  (data.elements||[]).forEach(function(el){
+    if(el.type!=='way'||!el.geometry) return;
+    var ref=el.tags&&el.tags.ref;
+    if(!ref) return;
+    // refが複数値のケース（例:"E1;E1A"）に対応
+    ref.split(';').forEach(function(r){
+      var key=r.trim();
+      if(groups[key]) groups[key].push(el);
+    });
+  });
+  var lhtml='';
+  var totalLines=[];
+  refs.forEach(function(ref){
+    var els=groups[ref];
+    if(!els||!els.length) return;
+    var info=ROAD_COLORS[ref]||{name:ref,color:'#888'};
+    els.forEach(function(el){
+      var coords=el.geometry.map(function(p){return [p.lat,p.lon];});
+      if(coords.length<2) return;
+      var line=L.polyline(coords,{
+        color:info.color, weight:3, opacity:0.88,
+        lineJoin:'round', lineCap:'round'
+      }).addTo(S.map);
+      line.bindTooltip(info.name,{permanent:false,sticky:true,direction:'top'});
+      S.routeLines.push(line);
+      totalLines.push(line);
+    });
+    lhtml+='<div class="rl-item"><div class="rl-line" style="background:'+info.color+'"></div><span>'+info.name+'</span></div>';
+  });
+  return lhtml;
+}
+
+// nameタグで新幹線をグルーピング
+function drawShinLines(data){
+  var groups={};
+  Object.keys(SHIN_COLORS).forEach(function(k){groups[k]=[];});
+  (data.elements||[]).forEach(function(el){
+    if(el.type!=='way'||!el.geometry) return;
+    var name=el.tags&&(el.tags.name||el.tags['name:ja']);
+    if(!name) return;
+    Object.keys(SHIN_COLORS).forEach(function(k){
+      if(name.indexOf(k)!==-1) groups[k].push(el);
+    });
+  });
+  var lhtml='';
+  Object.keys(SHIN_COLORS).forEach(function(k){
+    var els=groups[k];
+    if(!els||!els.length) return;
+    var info=SHIN_COLORS[k];
+    els.forEach(function(el){
+      var coords=el.geometry.map(function(p){return [p.lat,p.lon];});
+      if(coords.length<2) return;
+      var line=L.polyline(coords,{
+        color:info.color, weight:2.5, opacity:0.88,
+        lineJoin:'round', lineCap:'round', dashArray:'7,5'
+      }).addTo(S.map);
+      line.bindTooltip(info.name,{permanent:false,sticky:true,direction:'top'});
+      S.routeLines.push(line);
+    });
+    lhtml+='<div class="rl-item"><div class="rl-line" style="background:'+info.color+';border-top:1px dashed rgba(255,255,255,0.7)"></div><span>'+info.name+'</span></div>';
+  });
+  return lhtml;
+}
+
+function showRouteLoading(mode){
+  var lb=document.getElementById('routeLegendBody');
+  var lt=document.getElementById('routeLegendTitle');
+  var lg=document.getElementById('routeLegend');
+  if(lt) lt.textContent=mode.label;
+  if(lb) lb.innerHTML='<div style="padding:8px 4px;color:var(--text-3);font-size:12px;display:flex;align-items:center;gap:8px"><div class="dots"><span></span><span></span><span></span></div>読み込み中...</div>';
+  if(lg) lg.classList.add('visible');
+  updateLegendPos();
+}
+
+function showRouteError(){
+  var lb=document.getElementById('routeLegendBody');
+  if(lb) lb.innerHTML='<div style="padding:8px 4px;color:var(--danger);font-size:12px">取得エラー。再度お試しください。</div>';
+}
+
+function renderRouteFromData(data, mode){
+  var lb=document.getElementById('routeLegendBody');
+  var lt=document.getElementById('routeLegendTitle');
+  var lg=document.getElementById('routeLegend');
+  var lhtml='';
+  if(mode.type==='road'){
+    lhtml=drawRoadLines(data, mode.refs);
+  } else {
+    lhtml=drawShinLines(data);
+  }
+  if(lt) lt.textContent=mode.label;
+  if(lb) lb.innerHTML=lhtml||'<div style="padding:6px 4px;font-size:11px;color:var(--text-3)">データなし</div>';
+  if(lg) lg.classList.add('visible');
+  updateLegendPos();
+}
+
+function fetchOverpass(query, onSuccess, onError){
+  fetch('https://overpass-api.de/api/interpreter',{
+    method:'POST',
+    headers:{'Content-Type':'application/x-www-form-urlencoded'},
+    body:'data='+encodeURIComponent(query)
+  })
+  .then(function(r){if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+  .then(onSuccess)
+  .catch(function(){
+    // フォールバック
+    fetch('https://overpass.kumi.systems/api/interpreter',{
+      method:'POST',
+      headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'data='+encodeURIComponent(query)
+    })
+    .then(function(r){if(!r.ok)throw new Error();return r.json();})
+    .then(onSuccess)
+    .catch(onError);
+  });
+}
+
+function drawMode(){
+  S.routeLines.forEach(function(l){S.map.removeLayer(l);});
+  S.routeLines=[];
+  var lg=document.getElementById('routeLegend');
+  if(S.mapMode===null){
+    if(lg) lg.classList.remove('visible');
+    updateLegendPos();
+    return;
+  }
+  var mode=MAP_MODES[S.mapMode];
+  var modeId=S.mapMode;
+
+  // キャッシュあり
+  if(ROUTE_CACHE[modeId]){
+    renderRouteFromData(ROUTE_CACHE[modeId], mode);
+    return;
+  }
+
+  // クエリ構築
+  var query;
+  if(mode.type==='road'){
+    query=buildRoadQuery(mode.refs, mode.bbox);
+  } else {
+    // 新幹線クエリ
+    query='[out:json][timeout:60];\nway'+mode.bbox+'["railway"="rail"]["highspeed"="yes"];\nout geom;';
+  }
+
+  showRouteLoading(mode);
+  fetchOverpass(query,
+    function(data){
+      ROUTE_CACHE[modeId]=data;
+      if(S.mapMode===modeId) renderRouteFromData(data, mode);
+    },
+    function(){showRouteError();}
+  );
+}
+
+function updateLegendPos(){
+  var BASE=16, GAP=6;
+  var ml=document.getElementById('mapWrap').querySelector('.map-legend');
+  var mlH=ml?ml.offsetHeight:58;
+  var rl=document.getElementById('routeLegend');
+  if(rl&&rl.classList.contains('visible')){
+    rl.style.bottom=(BASE+mlH+GAP)+'px';
+  }
+}
+function renderMap(){
+  if(!S.map){
+    S.map=L.map('leafletMap').setView([37.0,137.0],5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{attribution:'&copy; OpenStreetMap',maxZoom:18}).addTo(S.map);
+    S.cluster=L.markerClusterGroup({iconCreateFunction:function(cl){
+      return L.divIcon({html:'<div style="background:#2B4A3A;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(43,74,58,0.4)">'+cl.getChildCount()+'</div>',iconSize:[32,32],className:''});
+    }});
+    S.map.addLayer(S.cluster);
+    // モードボタン（排他選択）
+    document.querySelectorAll('[data-mode]').forEach(function(btn){
+      btn.addEventListener('click',function(){
+        var m=parseInt(btn.dataset.mode,10);
+        if(S.mapMode===m){
+          S.mapMode=null;
+          document.querySelectorAll('[data-mode]').forEach(function(b){b.classList.remove('on');});
+        } else {
+          S.mapMode=m;
+          document.querySelectorAll('[data-mode]').forEach(function(b){b.classList.toggle('on',parseInt(b.dataset.mode,10)===m);});
+          var mode=MAP_MODES[m];
+          S.map.setView(mode.center,mode.zoom);
+        }
+        drawMode();
+      });
+    });
+    document.getElementById('mapResetBtn').addEventListener('click',function(){
+      S.map.setView([37.0,137.0],5);
+    });
+    // 凡例折りたたみ
+    var rlh=document.getElementById('routeLegendHeader');
+    if(rlh){rlh.addEventListener('click',function(){
+      var b=document.getElementById('routeLegendBody');
+      var t=document.getElementById('routeLegendToggle');
+      var collapsed=b.classList.toggle('collapsed');
+      if(t)t.textContent=collapsed?'+':'−';
+      setTimeout(updateLegendPos,10);
+    });}
+    // Map search
+    var msi=document.getElementById('mapSearchInput');
+    var msb=document.getElementById('mapSearchBtn');
+    var msr=document.getElementById('mapSearchResults');
+    function doMapSearch(){
+      var q=msi.value.trim();
+      if(!q) return;
+      msb.textContent='…';
+      fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&limit=5&accept-language=ja',{headers:{'User-Agent':'TripMemoApp/1.0'}})
+      .then(function(r){return r.json();})
+      .then(function(data){
+        msb.textContent='🔍';
+        if(!data||!data.length){
+          msr.innerHTML='<div class="map-sr-item"><div class="map-sr-name" style="color:var(--text-3)">見つかりませんでした</div></div>';
+          msr.classList.add('visible'); return;
+        }
+        var html=data.map(function(d,i){
+          var name=d.display_name.split(',')[0];
+          return '<div class="map-sr-item" data-lat="'+d.lat+'" data-lon="'+d.lon+'" data-idx="'+i+'">'+
+            '<div class="map-sr-name">'+esc(name)+'</div>'+
+            '<div class="map-sr-addr">'+esc(d.display_name)+'</div>'+
+          '</div>';
+        }).join('');
+        msr.innerHTML=html;
+        msr.classList.add('visible');
+        msr.querySelectorAll('[data-idx]').forEach(function(item){
+          item.addEventListener('click',function(){
+            S.map.setView([parseFloat(item.dataset.lat),parseFloat(item.dataset.lon)],13);
+            msr.classList.remove('visible');
+            msi.value=item.querySelector('.map-sr-name').textContent;
+          });
+        });
+      })
+      .catch(function(){msb.textContent='🔍';});
+    }
+    if(msb) msb.addEventListener('click',doMapSearch);
+    if(msi) msi.addEventListener('keydown',function(e){if(e.key==='Enter')doMapSearch();});
+    document.addEventListener('click',function(e){
+      if(msr&&!msr.contains(e.target)&&e.target!==msi&&e.target!==msb) msr.classList.remove('visible');
+    });
+  }
+  S.cluster.clearLayers();
+  filtered().forEach(function(s){
+    if(!s.lat||!s.lng)return;
+    var col=s.visited?'#2B4A3A':'#7AAF8E';
+    var icon=L.divIcon({html:'<div style="width:14px;height:14px;border-radius:50%;background:'+col+';border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.25)"></div>',iconSize:[14,14],iconAnchor:[7,7],className:''});
+    var pl=!s.visited?(s.prio==='must'?' <span style="background:#2B4A3A;color:#fff;padding:1px 6px;border-radius:20px;font-size:10px">MUST</span>':s.prio==='want'?' <span style="background:#E8F2EC;color:#3D6B55;padding:1px 6px;border-radius:20px;font-size:10px">WANT</span>':''):'';
+    var m=L.marker([s.lat,s.lng],{icon:icon});
+    m.bindPopup('<div class="pp-name">'+esc(s.name)+pl+'</div><div class="pp-meta">'+esc(s.type)+' &middot; '+esc(s.area)+(s.pref?' &middot; '+esc(s.pref):'')+(s.addr?'<br>'+esc(s.addr):'')+' <span style="color:'+(s.visited?'#2B4A3A':'#9C9488')+'">'+(s.visited?'&#10003; 訪問済':'&#9711; 行きたい')+'</span></div>'+(s.memo?'<div class="pp-memo">'+esc(s.memo)+'</div>':''),{maxWidth:240});
+    S.cluster.addLayer(m);
+  });
+  setTimeout(function(){S.map.invalidateSize();},100);
+}
+function renderCourses(){
+  var c=document.getElementById('content');
+  if(!S.courses.length){c.innerHTML='<div class="empty"><span class="empty-icon">&#128739;</span><div class="empty-title">コースがありません</div><div class="empty-sub">右下のボタンで\nモデルコースを作りましょう</div></div>';return;}
+  var html='<div class="sec-head">モデルコース <span class="sec-action" id="addCBtn">&#65291; 新規作成</span></div>';
+  S.courses.forEach(function(cr,ci){
+    var dh=(cr.days||[]).map(function(d){
+      var sp=null;S.spots.forEach(function(x){if(x.id===d.spotId)sp=x;});
+      return '<div class="tl-day"><div class="tl-lbl">Day '+d.day+'</div><div class="tl-name">'+(sp?esc(sp.name):'未設定')+'</div>'+(d.memo?'<div class="tl-memo">'+esc(d.memo)+'</div>':'')+'</div>';
+    }).join('');
+    var ch=(cr.days||[]).map(function(d){var sp=null;S.spots.forEach(function(x){if(x.id===d.spotId)sp=x;});return sp?'<span class="crs-chip">&#128205; '+esc(sp.name)+'</span>':'';}).filter(Boolean).join('');
+    html+='<div class="crs-card">'+
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">'+
+        '<div class="crs-title">'+esc(cr.name)+'</div>'+
+        '<button class="sh-close" data-dci="'+ci+'">&#128465;</button>'+
+      '</div>'+
+      (cr.desc?'<div class="crs-desc">'+esc(cr.desc)+'</div>':'')+
+      '<span class="badge b-type" style="margin-bottom:10px;display:inline-flex">'+esc(cr.area||'')+'</span>'+
+      '<div class="crs-tl">'+dh+'</div><div class="crs-spots">'+ch+'</div></div>';
+  });
+  c.innerHTML=html;
+  var ab=document.getElementById('addCBtn');if(ab)ab.addEventListener('click',openCourseForm);
+  c.querySelectorAll('[data-dci]').forEach(function(btn){
+    btn.addEventListener('click',function(e){e.stopPropagation();S.courses.splice(parseInt(btn.dataset.dci,10),1);saveC();renderCourses();showToast('コースを削除しました',false);});
+  });
+}
+function renderRecommend(){
+  var c=document.getElementById('content');
+  var bh='<button id="recBtn" style="padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer"'+(S.recLoad?' disabled':'')+'>&#10024; AIで更新</button>';
+  var hd='<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px"><div><div style="font-family:\'Playfair Display\',serif;font-size:17px;color:var(--accent)">おすすめスポット</div><div style="font-size:11px;color:var(--text-3);margin-top:2px">あなたのメモ × 最新トレンド AI分析</div></div>'+bh+'</div>';
+  if(S.recLoad){c.innerHTML=hd+'<div style="text-align:center;padding:60px 0"><div class="dots"><span></span><span></span><span></span></div><div style="color:var(--text-3);font-size:13px;margin-top:14px">AIが分析中...</div></div>';return;}
+  if(!S.recData.length){
+    c.innerHTML=hd+'<div class="empty"><span class="empty-icon">&#127807;</span><div class="empty-title">まだデータがありません</div><div class="empty-sub">「AIで更新」ボタンで\nあなたの旅の好みを分析します</div></div>';
+    c.querySelector('#recBtn').addEventListener('click',fetchRec);return;
+  }
+  var recs=S.recData.map(function(r,i){
+    return '<div class="rec-card"><div class="rec-num">'+String(i+1).padStart(2,'0')+'</div><div class="rec-body">'+
+      '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px"><div class="rec-name">'+esc(r.name)+'</div>'+
+      (r.type?'<span class="badge b-type">'+esc(r.type)+'</span>':'')+
+      (r.area?'<span class="badge b-type" style="color:var(--text-3)">'+esc(r.area)+'</span>':'')+
+      '</div><div class="rec-reason">'+esc(r.reason||'')+'</div>'+(r.trend?'<div class="rec-trend">'+esc(r.trend)+'</div>':'')+
+      '</div><button class="rec-save" data-ri="'+i+'">&#65291; 保存</button></div>';
+  }).join('');
+  c.innerHTML=hd+recs;
+  c.querySelector('#recBtn').addEventListener('click',fetchRec);
+  c.querySelectorAll('[data-ri]').forEach(function(btn){
+    btn.addEventListener('click',function(){
+      var r=S.recData[parseInt(btn.dataset.ri,10)];
+      openForm(null,{name:r.name,type:r.type||'観光',area:r.area||'',memo:r.reason||'',tags:[],prio:'wish'});
+    });
+  });
+}
+function fetchRec(){
+  S.recLoad=true;renderRecommend();
+  var names=S.spots.map(function(s){return s.name+'('+s.type+'/'+s.area+')';}).join(', ');
+  var vis=S.spots.filter(function(s){return s.visited;}).map(function(s){return s.name+(s.rating?'(★'+s.rating+')':'');}).join(', ');
+  var top=S.spots.filter(function(s){return s.visited&&s.rating===3;}).map(function(s){return s.name;}).join(', ');
+  var fb=function(){
+    S.recData=[
+      {name:'上高地',type:'観光',area:'北陸・東海',reason:'2025年も人気の高山リゾート。アルペンルートとセットが定番。',trend:'&#128200; 自然体験需要増'},
+      {name:'奥入瀬渓流ホテル',type:'宿泊',area:'東北',reason:'星野リゾートの人気施設。苔・紅葉シーズンは特に人気。',trend:'&#128200; 森林浴ブーム'},
+      {name:'道東・釧路湿原',type:'観光',area:'北海道',reason:'タンチョウ観察で世界的に注目。エコツーリズム需要が高まっている。',trend:'&#128200; エコツーリズム'}
+    ];
+    S.recLoad=false;renderRecommend();
+  };
+  fetch('https://api.anthropic.com/v1/messages',{
+    method:'POST',headers:{'Content-Type':'application/json'},
+    body:JSON.stringify({model:'claude-sonnet-4-20250514',max_tokens:1200,
+      tools:[{type:'web_search_20250305',name:'web_search'}],
+      messages:[{role:'user',content:'あなたは日本旅行の専門家です。以下のユーザーの旅行スポットリストを分析し、最新トレンド（2025〜2026年）を反映したおすすめ旅行先・宿・観光地を10件提案してください。\n\n【登録スポット】'+names+'\n【訪問済み（★評価付き）】'+(vis||'なし')+'\n【特に良かった場所★★★】'+(top||'なし')+'\n\n必ずJSONのみで回答。マークダウン不可。形式：{"recommendations":[{"name":"名称","type":"宿泊 or 観光 or グルメ or 体験","area":"エリア","reason":"推薦理由","trend":"トレンドポイント（絵文字つき）"}]}'}]
+    })
+  })
+  .then(function(r){return r.json();})
+  .then(function(data){
+    var txt=(data.content||[]).filter(function(x){return x.type==='text';}).map(function(x){return x.text;}).join('');
+    var parsed=JSON.parse(txt.replace(/\x60{3}json|\x60{3}/g,'').trim());
+    S.recData=parsed.recommendations||[];
+    S.recLoad=false;renderRecommend();
+  })
+  .catch(function(){fb();});
+}
+
+function openView(oi){
+  var s=S.spots[oi];if(!s)return;
+  var sa=[];S.spots.forEach(function(x,i){if(i!==oi&&x.area===s.area)sa.push({s:x,i:i});});sa=sa.slice(0,6);
+  var th=(s.tags||[]).map(function(t){return '<span class="tag">#'+esc(t)+'</span>';}).join('');
+  var ph='';if(!s.visited){if(s.prio==='must')ph='<span class="badge b-must">MUST</span>';else if(s.prio==='want')ph='<span class="badge b-want">WANT</span>';}
+  var sah='';
+  if(sa.length){
+    sah='<div class="sa-section"><div class="sa-title">同じエリアのスポット（'+esc(s.area)+'）</div><div>';
+    sa.forEach(function(it){sah+='<span class="sa-chip" data-sai="'+it.i+'"><span class="sa-name">'+esc(it.s.name)+'</span><span class="sa-sub"> '+esc(it.s.type)+(it.s.visited?' ✓':'')+(it.s.prio==='must'?' MUST':it.s.prio==='want'?' WANT':'')+'</span></span>';});
+    sah+='</div></div>';
+  }
+  var dc=document.getElementById('sheetContent');
+  dc.innerHTML=
+    '<div class="sh-header"><div class="sh-title">スポット詳細</div><button class="sh-close" id="sc">&#10005;</button></div>'+
+    '<div class="vw-date-row">'+
+      '<div class="vw-date">'+(s.visitedDate||'未訪問')+'</div>'+
+      (s.visited?'<div class="stars" id="starRow">'+[1,2,3].map(function(n){return '<span class="star'+((s.rating||0)>=n?' on':'')+' " data-star="'+n+'">&#9733;</span>';}).join('')+'</div>':'')+
+    '</div>'+
+    '<div class="vw-name">'+esc(s.name)+'</div>'+
+    '<div class="vw-meta">'+ph+'<span class="badge b-type">'+esc(s.type)+'</span><span class="badge b-type">'+esc(s.area)+'</span>'+
+    (s.pref?'<span class="badge b-type">'+esc(s.pref)+'</span>':'')+
+    '<span class="badge '+(s.visited?'b-vis':'b-unvis')+'">'+
+    (s.visited?'&#10003; 訪問済':'&#9711; 行きたい')+'</span></div>'+
+    (s.addr?'<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">&#128205; '+esc(s.addr)+'</div>':'')+
+    (s.memo?'<div class="vw-body">'+esc(s.memo)+'</div>':'')+
+    (th?'<div class="vw-tags">'+th+'</div>':'')+
+    '<div class="vw-actions">'+
+      '<button class="btn-edit" id="vedit">&#9999; 編集</button>'+
+      '<div class="vw-actions-sub">'+
+        '<button class="btn-tog" id="vtog">'+(s.visited?'&#128260; 未訪問に戻す':'&#10003; 訪問済みにする')+'</button>'+
+        '<button class="btn-del" id="vdel">&#128465;</button>'+
+      '</div>'+
+    '</div>'+
+    sah;
+  document.getElementById('sc').addEventListener('click',closeSheet);
+  document.getElementById('vedit').addEventListener('click',function(){openForm(oi);});
+  document.getElementById('vtog').addEventListener('click',function(){
+    S.spots[oi].visited=!S.spots[oi].visited;
+    S.spots[oi].visitedDate=S.spots[oi].visited?new Date().toISOString().slice(0,7):null;
+    S.spots[oi].exportedAt=null;
+    save();closeSheet();renderStats();renderContent();
+  });
+  document.getElementById('vdel').addEventListener('click',function(){closeSheet();setTimeout(function(){delSpot(oi);},200);});
+  dc.querySelectorAll('[data-sai]').forEach(function(chip){
+    chip.addEventListener('click',function(){var xi=parseInt(chip.dataset.sai,10);closeSheet();setTimeout(function(){openView(xi);},300);});
+  });
+  var sr=document.getElementById('starRow');
+  if(sr){sr.querySelectorAll('[data-star]').forEach(function(st){st.addEventListener('click',function(){
+    var n=parseInt(st.dataset.star,10);
+    S.spots[oi].rating=(S.spots[oi].rating===n?0:n);
+    save();
+    var r=S.spots[oi].rating;
+    sr.querySelectorAll('[data-star]').forEach(function(x){x.classList.toggle('on',parseInt(x.dataset.star,10)<=r);});
+  });});}
+  openSheet();
+}
+function openForm(oi,pf){
+  var isNew=(oi===null||oi===undefined);
+  var src=isNew?(pf||{}):(S.spots[oi]||{});
+  var s={name:src.name||'',type:src.type||'観光',area:src.area||'関東甲信越',pref:src.pref||'',addr:src.addr||'',tags:src.tags||[],memo:src.memo||'',lat:src.lat||'',lng:src.lng||'',visited:src.visited||false,visitedDate:src.visitedDate||null,prio:src.prio||'wish',id:src.id||''};
+  var sp=s.prio;
+  var ph=PRIOS.map(function(p){return '<div class="fs-sitem'+(sp===p.k?' on':'')+'" data-prio="'+p.k+'"><span>'+p.l+'</span><span style="font-size:12px;color:var(--text-3)">'+p.d+'</span></div>';}).join('');
+  var dc=document.getElementById('sheetContent');
+  dc.innerHTML=
+    '<div class="sh-header"><div class="sh-title">'+(isNew?'スポットを追加':'スポットを編集')+'</div><button class="sh-close" id="sc">&#10005;</button></div>'+
+    '<div class="err-msg" id="em">&#9888; スポット名を入力してください</div>'+
+    fld('スポット名','<div class="field-wb"><input type="text" id="fN" placeholder="例：軽井沢、由布院..." value="'+esc(s.name)+'" maxlength="60"><button class="geo-btn" id="geoBtn">&#128269; 検索</button></div><div class="geo-results" id="geoR" style="display:none"></div>')+
+    '<div class="field-row">'+fld('種別','<select id="fT">'+TYPES.map(function(t){return '<option'+(s.type===t?' selected':'')+'>'+esc(t)+'</option>';}).join('')+'</select>')+fld('エリア','<select id="fA">'+AREAS.map(function(a){return '<option'+(s.area===a?' selected':'')+'>'+esc(a)+'</option>';}).join('')+'</select>')+'</div>'+
+    fld('都道府県','<input type="text" id="fP" placeholder="群馬県" value="'+esc(s.pref)+'">')+
+    fld('住所','<input type="text" id="fAddr" placeholder="自動入力されます" value="'+esc(s.addr)+'">')+
+    '<div class="field-row">'+fld('緯度','<input type="number" id="fLat" step="0.0001" placeholder="35.681" value="'+esc(String(s.lat))+'">')+fld('経度','<input type="number" id="fLng" step="0.0001" placeholder="139.767" value="'+esc(String(s.lng))+'">') +'</div>'+
+    fld('タグ（カンマ区切り）','<input type="text" id="fTg" placeholder="温泉, 冬, 家族" value="'+esc(s.tags.join(', '))+'">')+
+    fld('メモ','<textarea id="fM" placeholder="行きたい理由、注意点など...">'+esc(s.memo)+'</textarea>')+
+    (!s.visited?'<div class="field"><label>行きたい度</label><div class="fs-sort" id="prioSel">'+ph+'</div></div>':'')+
+    '<button class="btn-save" id="fSave">'+(isNew?'追加する':'更新する')+'</button>';
+  document.getElementById('sc').addEventListener('click',closeSheet);
+  var ps=document.getElementById('prioSel');
+  if(ps){ps.querySelectorAll('[data-prio]').forEach(function(el){el.addEventListener('click',function(){sp=el.dataset.prio;ps.querySelectorAll('[data-prio]').forEach(function(x){x.classList.remove('on');});el.classList.add('on');});});}
+  document.getElementById('geoBtn').addEventListener('click',function(){
+    var nm=document.getElementById('fN').value.trim(), pref=document.getElementById('fP').value.trim();
+    if(!nm){document.getElementById('em').classList.add('show');return;}
+    doGeo(nm+(pref?' '+pref:''));
+  });
+  document.getElementById('fSave').addEventListener('click',function(){
+    var nm=document.getElementById('fN').value.trim();
+    if(!nm){document.getElementById('em').classList.add('show');document.getElementById('fN').focus();return;}
+    document.getElementById('em').classList.remove('show');
+    var obj={id:isNew?uuid():s.id,name:nm,
+      type:document.getElementById('fT').value,area:document.getElementById('fA').value,
+      pref:document.getElementById('fP').value.trim(),
+      addr:document.getElementById('fAddr').value.trim(),
+      tags:document.getElementById('fTg').value.split(',').map(function(t){return t.trim();}).filter(Boolean),
+      memo:document.getElementById('fM').value.trim(),
+      lat:parseFloat(document.getElementById('fLat').value)||0,
+      lng:parseFloat(document.getElementById('fLng').value)||0,
+      visited:s.visited,visitedDate:s.visitedDate,
+      prio:s.visited?s.prio:sp,exportedAt:null
+    };
+    if(isNew)S.spots.unshift(obj);else S.spots[oi]=obj;
+    save();closeSheet();renderStats();renderContent();
+  });
+  openSheet();
+  setTimeout(function(){var e=document.getElementById('fN');if(e)e.focus();},420);
+}
+function fld(l,h){return '<div class="field"><label>'+l+'</label>'+h+'</div>';}
+function doGeo(q){
+  var btn=document.getElementById('geoBtn'), res=document.getElementById('geoR');
+  if(btn){btn.disabled=true;btn.textContent='検索中...';}
+  if(res){res.style.display='none';res.innerHTML='';}
+  fetch('https://nominatim.openstreetmap.org/search?q='+encodeURIComponent(q)+'&format=json&addressdetails=1&limit=5&countrycodes=jp&accept-language=ja',{headers:{'User-Agent':'TripMemoApp/1.0'}})
+  .then(function(r){return r.json();})
+  .then(function(data){
+    if(btn){btn.disabled=false;btn.textContent='&#128269; 検索';}
+    if(!data||!data.length){if(res){res.style.display='block';res.innerHTML='<div class="geo-item"><div class="geo-item-name" style="color:var(--text-3)">見つかりませんでした</div></div>';}return;}
+    var html=data.map(function(d,i){return '<div class="geo-item" data-gi="'+i+'"><div class="geo-item-name">'+esc(d.display_name.split(',')[0])+'</div><div class="geo-item-addr">'+esc(d.display_name)+'</div></div>';}).join('');
+    if(res){res.style.display='block';res.innerHTML=html;}
+    res.querySelectorAll('[data-gi]').forEach(function(item){
+      item.addEventListener('click',function(){
+        var d=data[parseInt(item.dataset.gi,10)];
+        var fa=document.getElementById('fAddr'), fl=document.getElementById('fLat'), fn=document.getElementById('fLng'), fp=document.getElementById('fP');
+        if(fa)fa.value=d.display_name;
+        if(fl)fl.value=parseFloat(d.lat).toFixed(4);
+        if(fn)fn.value=parseFloat(d.lon).toFixed(4);
+        var addr=d.address||{};var pref=addr.province||addr.state||'';
+        if(pref&&fp&&!fp.value)fp.value=pref;
+        if(res)res.style.display='none';
+        showToast('住所・座標を自動入力しました',false);
+      });
+    });
+  })
+  .catch(function(){if(btn){btn.disabled=false;btn.textContent='&#128269; 検索';}showToast('検索に失敗しました',false);});
+}
+function openFilterSheet(){
+  var dc=document.getElementById('sheetContent');
+  var ac=['all'].concat(AREAS).map(function(a){return '<button class="fs-chip'+(S.fArea===a?' on':'')+'" data-fa="'+esc(a)+'">'+(a==='all'?'すべて':a)+'</button>';}).join('');
+  var tc=['all'].concat(TYPES).map(function(t){return '<button class="fs-chip'+(S.fType===t?' on':'')+'" data-ft="'+esc(t)+'">'+(t==='all'?'すべて':t)+'</button>';}).join('');
+  var vc=[{k:'all',l:'すべて'},{k:'unvisited',l:'未訪問のみ'},{k:'visited',l:'訪問済みのみ'}].map(function(v){return '<button class="fs-chip'+(S.fVis===v.k?' on':'')+'" data-fv="'+v.k+'">'+v.l+'</button>';}).join('');
+  var pc=[{k:'all',l:'すべて'},{k:'must',l:'MUST'},{k:'want',l:'WANT'},{k:'wish',l:'WISH'}].map(function(p){return '<button class="fs-chip'+(S.fPrio===p.k?' on':'')+'" data-fp="'+p.k+'">'+p.l+'</button>';}).join('');
+  var sc=SORTS.map(function(s){return '<div class="fs-sitem'+(S.sort===s.k?' on':'')+'" data-sort="'+s.k+'"><span>'+s.i+'</span><span>'+s.l+'</span></div>';}).join('');
+  var rc=[{k:'all',l:'すべて'},{k:'3',l:'&#9733;&#9733;&#9733;'},{k:'2',l:'&#9733;&#9733;'},{k:'1',l:'&#9733;'}].map(function(p){return '<button class="fs-chip'+(S.fStar===p.k?' on':''+'\"')+' data-fr="'+p.k+'">'+p.l+'</button>';}).join('');
+  dc.innerHTML=
+    '<div class="sh-header"><div class="sh-title">絞り込み・並び替え</div><button class="sh-close" id="sc">&#10005;</button></div>'+
+    '<div class="fs-sec"><div class="fs-lbl">エリア</div><div class="fs-chips">'+ac+'</div></div>'+
+    '<div class="fs-sec"><div class="fs-lbl">種別</div><div class="fs-chips">'+tc+'</div></div>'+
+    '<div class="fs-sec"><div class="fs-lbl">訪問状態</div><div class="fs-chips">'+vc+'</div></div>'+
+    '<div class="fs-sec"><div class="fs-lbl">行きたい度</div><div class="fs-chips">'+pc+'</div></div>'+
+    '<div class="fs-sec"><div class="fs-lbl">訪問済み 評価</div><div class="fs-chips">'+rc+'</div></div>'+
+    '<div class="fs-sec"><div class="fs-lbl">並び替え</div><div class="fs-sort">'+sc+'</div></div>'+
+    '<button class="fs-reset" id="fsR">すべてリセット</button>';
+  document.getElementById('sc').addEventListener('click',closeSheet);
+  document.getElementById('fsR').addEventListener('click',function(){S.fArea='all';S.fType='all';S.fVis='all';S.fPrio='all';S.fStar='all';S.sort='added';closeSheet();renderTopBar();renderContent();});
+  dc.querySelectorAll('[data-fa]').forEach(function(b){b.addEventListener('click',function(){S.fArea=b.dataset.fa;applyF(dc);});});
+  dc.querySelectorAll('[data-ft]').forEach(function(b){b.addEventListener('click',function(){S.fType=b.dataset.ft;applyF(dc);});});
+  dc.querySelectorAll('[data-fv]').forEach(function(b){b.addEventListener('click',function(){S.fVis=b.dataset.fv;applyF(dc);});});
+  dc.querySelectorAll('[data-fp]').forEach(function(b){b.addEventListener('click',function(){S.fPrio=b.dataset.fp;applyF(dc);});});
+  dc.querySelectorAll('[data-fr]').forEach(function(b){b.addEventListener('click',function(){S.fStar=b.dataset.fr;applyF(dc);});});
+  dc.querySelectorAll('[data-sort]').forEach(function(b){b.addEventListener('click',function(){S.sort=b.dataset.sort;applyF(dc);});});
+  openSheet();
+}
+function applyF(dc){
+  dc.querySelectorAll('[data-fa]').forEach(function(b){b.classList.toggle('on',b.dataset.fa===S.fArea);});
+  dc.querySelectorAll('[data-ft]').forEach(function(b){b.classList.toggle('on',b.dataset.ft===S.fType);});
+  dc.querySelectorAll('[data-fv]').forEach(function(b){b.classList.toggle('on',b.dataset.fv===S.fVis);});
+  dc.querySelectorAll('[data-fp]').forEach(function(b){b.classList.toggle('on',b.dataset.fp===S.fPrio);});
+  dc.querySelectorAll('[data-fr]').forEach(function(b){b.classList.toggle('on',b.dataset.fr===S.fStar);});
+  dc.querySelectorAll('[data-sort]').forEach(function(b){b.classList.toggle('on',b.dataset.sort===S.sort);});
+  renderTopBar();renderContent();
+}
+function openCourseForm(){
+  var dc=document.getElementById('sheetContent');
+  var ck=S.spots.map(function(s){return '<label class="cl-item"><input type="checkbox" class="cs-ck" data-id="'+s.id+'"><span class="cl-name">'+esc(s.name)+'</span><span class="cl-area">'+esc(s.area)+'</span></label>';}).join('');
+  dc.innerHTML=
+    '<div class="sh-header"><div class="sh-title">コースを作成</div><button class="sh-close" id="sc">&#10005;</button></div>'+
+    fld('コース名','<input type="text" id="cN" placeholder="例：山陰・山陽 3泊4日" maxlength="60">')+
+    fld('説明','<input type="text" id="cD" placeholder="コースのテーマや特徴">')+
+    fld('エリア','<select id="cA">'+AREAS.map(function(a){return '<option>'+esc(a)+'</option>';}).join('')+'</select>')+
+    '<div class="field"><label>含めるスポット（選択順がDay順）</label><div class="checklist">'+ck+'</div></div>'+
+    '<button class="btn-save" id="cSave">作成する</button>';
+  document.getElementById('sc').addEventListener('click',closeSheet);
+  document.getElementById('cSave').addEventListener('click',function(){
+    var nm=document.getElementById('cN').value.trim();if(!nm){document.getElementById('cN').focus();return;}
+    var sel=[];document.querySelectorAll('.cs-ck:checked').forEach(function(cb){sel.push(cb.dataset.id);});
+    var days=sel.map(function(sid,i){return {day:i+1,spotId:sid,memo:''};});
+    S.courses.push({id:uuid(),name:nm,desc:document.getElementById('cD').value.trim(),area:document.getElementById('cA').value,days:days});
+    saveC();closeSheet();renderCourses();
+  });
+  openSheet();
+}
+function delSpot(oi){
+  S.lastDel={item:Object.assign({},S.spots[oi]),index:oi};
+  S.spots.splice(oi,1);save();renderStats();renderContent();showToast('削除しました',true);
+}
+function swStart(e,el){
+  S.sw.x0=e.touches[0].clientX;S.sw.x1=e.touches[0].clientX;S.sw.y0=e.touches[0].clientY;S.sw.moved=false;
+  if(S.sw.el&&S.sw.el!==el){S.sw.el.style.transition='transform 0.2s ease';S.sw.el.style.transform='';S.sw.el.parentNode.classList.remove('is-swiping');S.sw.el=null;}
+}
+function swMove(e,el){
+  S.sw.x1=e.touches[0].clientX;
+  var dx=S.sw.x1-S.sw.x0;
+  var dy=e.touches[0].clientY-S.sw.y0;
+  if(Math.abs(dx)>10)S.sw.moved=true;
+  // only activate horizontal swipe if horizontal movement dominates vertical
+  if(dx<0&&Math.abs(dx)>Math.abs(dy)&&Math.abs(dx)>16){
+    el.parentNode.classList.add('is-swiping');
+    el.style.transition='none';
+    el.style.transform='translateX('+Math.max(dx,-80)+'px)';
+  }
+}
+function swEnd(e,el){
+  var d=S.sw.x1-S.sw.x0;el.style.transition='transform 0.22s ease';
+  if(d<-60){el.parentNode.classList.add('is-swiping');el.style.transform='translateX(-80px)';S.sw.el=el;}
+  else{el.parentNode.classList.remove('is-swiping');el.style.transform='';S.sw.el=null;}
+  setTimeout(function(){S.sw.moved=false;},50);
+}
+function showToast(msg,wu){
+  var t=document.getElementById('toast'),txt=document.getElementById('toastTxt'),ub=document.getElementById('toastUndo');
+  txt.textContent=msg;ub.style.display=wu?'':'none';
+  t.classList.add('show');clearTimeout(S.toastT);
+  S.toastT=setTimeout(function(){t.classList.remove('show');S.lastDel=null;},4500);
+}
+document.getElementById('toastUndo').addEventListener('click',function(){
+  if(!S.lastDel)return;
+  S.spots.splice(S.lastDel.index,0,S.lastDel.item);
+  save();renderStats();renderContent();
+  document.getElementById('toast').classList.remove('show');clearTimeout(S.toastT);S.lastDel=null;
+});
+function openSheet(){document.getElementById('overlay').classList.add('show');document.getElementById('sheet').classList.add('show');}
+function closeSheet(){document.getElementById('overlay').classList.remove('show');document.getElementById('sheet').classList.remove('show');}
+document.getElementById('overlay').addEventListener('click',closeSheet);
+function openSettings(){
+  var cfg=loadNas()||{ip:'',port:'5001',user:'',pass:'',folder:''};
+  var dc=document.getElementById('sheetContent');
+  dc.innerHTML=
+    '<div class="sh-header"><div class="sh-title">設定・バックアップ</div><button class="sh-close" id="sc">&#10005;</button></div>'+
+    '<div class="set-sec">バックアップ</div>'+
+    '<div class="set-desc">スポット・コース全件をJSONで保存。NASが設定済みの場合はNASへ送信し、未設定・失敗時はiPhoneのファイルアプリへ保存されます。世代は最大'+MG+'件で自動ローテーション。</div>'+
+    '<div class="btn-row"><button class="btn-exp" id="expBtn">&#11014; エクスポート</button></div>'+
+    '<hr class="set-hr">'+
+    '<div class="set-sec">リストア</div>'+
+    '<div class="set-desc">バックアップJSONを読み込みます。既存データはそのまま残し、新しいスポット・コースのみ追加します。</div>'+
+    '<div class="btn-row"><button class="btn-sub" id="impBtn">&#11015; インポート</button></div>'+
+    '<hr class="set-hr">'+
+    '<div class="set-sec">NAS設定（Synology）</div>'+
+    '<div class="set-desc">Synology NASに直接バックアップする場合のみ設定してください。未設定でもエクスポートは動作します。</div>'+
+    fld('NAS IPアドレス','<input type="text" id="nIp" placeholder="192.168.0.170" value="'+esc(cfg.ip)+'" inputmode="url" autocomplete="off">')+
+    fld('ポート番号','<input type="text" id="nPt" placeholder="5001" value="'+esc(cfg.port)+'" inputmode="numeric">')+
+    fld('ユーザー名','<input type="text" id="nUs" placeholder="API_User" value="'+esc(cfg.user)+'" autocomplete="off">')+
+    fld('パスワード','<input type="password" id="nPw" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" value="'+esc(cfg.pass)+'" autocomplete="off">')+
+    fld('保存先フォルダ','<input type="text" id="nFo" placeholder="homes/user/TripMemoBackup" value="'+esc(cfg.folder)+'" autocomplete="off">')+
+    '<button class="btn-save" id="nSave">NAS設定を保存</button>';
+  document.getElementById('sc').addEventListener('click',closeSheet);
+  document.getElementById('expBtn').addEventListener('click',doExport);
+  document.getElementById('impBtn').addEventListener('click',function(){document.getElementById('importFile').click();});
+  document.getElementById('nSave').addEventListener('click',function(){
+    saveNas({ip:document.getElementById('nIp').value.trim(),port:document.getElementById('nPt').value.trim()||'5001',user:document.getElementById('nUs').value.trim(),pass:document.getElementById('nPw').value,folder:document.getElementById('nFo').value.trim()});
+    showToast('NAS設定を保存しました',false);
+  });
+  openSheet();
+}
+function doExport(){
+  var btn=document.getElementById('expBtn');if(btn){btn.disabled=true;btn.textContent='送信中...';}
+  var cfg=loadNas(), has=cfg&&cfg.ip&&cfg.user&&cfg.pass&&cfg.folder;
+  var fn='tripmemo_backup_'+nowStr()+'.json';
+  var json=JSON.stringify({exported:new Date().toISOString(),spots:S.spots,courses:S.courses},null,2);
+  function done(toNas){markExp();closeSheet();showToast(toNas?'NASにバックアップしました ✓':'エクスポートしました ✓',false);}
+  if(has){exportNas(cfg,fn,json,function(ok){if(ok){done(true);}else{dlJson(fn,json);markExp();closeSheet();showToast('NAS失敗 → ファイルに保存しました',false);}});}
+  else{dlJson(fn,json);done(false);}
+}
+function markExp(){var now=new Date().toISOString();S.spots.forEach(function(s){s.exportedAt=now;});save();renderContent();}
+function exportNas(cfg,fn,json,cb){
+  var base='https://'+cfg.ip+':'+cfg.port+'/webapi';
+  fetch(base+'/auth.cgi?api=SYNO.API.Auth&version=3&method=login&account='+encodeURIComponent(cfg.user)+'&passwd='+encodeURIComponent(cfg.pass)+'&session=FileStation&format=sid')
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.success)throw new Error('login');
+    var sid=d.data.sid, blob=new Blob([json],{type:'application/json'}), fd=new FormData();
+    fd.append('api','SYNO.FileStation.Upload');fd.append('version','2');fd.append('method','upload');
+    fd.append('path','/'+cfg.folder.replace(/^\//,''));fd.append('create_parents','true');fd.append('overwrite','true');fd.append('_sid',sid);fd.append('file',blob,fn);
+    return fetch(base+'/entry.cgi',{method:'POST',body:fd}).then(function(r){return r.json();}).then(function(up){
+      if(!up.success)throw new Error('upload');
+      pruneNas(base,sid,cfg.folder,function(){logoutNas(base,sid);cb(true);});
+    });
+  }).catch(function(){cb(false);});
+}
+function pruneNas(base,sid,folder,done){
+  fetch(base+'/entry.cgi?api=SYNO.FileStation.List&version=2&method=list&folder_path=/'+encodeURIComponent(folder.replace(/^\//,''))+'&pattern=tripmemo_backup_*.json&sort_by=name&sort_direction=ASC&_sid='+encodeURIComponent(sid))
+  .then(function(r){return r.json();}).then(function(d){
+    if(!d.success){done();return;}
+    var files=d.data.files||[], toDel=files.slice(0,Math.max(0,files.length-MG));
+    if(!toDel.length){done();return;}
+    fetch(base+'/entry.cgi',{method:'POST',headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body:'api=SYNO.FileStation.Delete&version=2&method=start&path='+encodeURIComponent(JSON.stringify(toDel.map(function(f){return f.path;})))+'&_sid='+encodeURIComponent(sid)
+    }).then(function(){done();}).catch(function(){done();});
+  }).catch(function(){done();});
+}
+function logoutNas(base,sid){fetch(base+'/auth.cgi?api=SYNO.API.Auth&version=1&method=logout&session=FileStation&_sid='+encodeURIComponent(sid)).catch(function(){});}
+function dlJson(fn,json){
+  var blob=new Blob([json],{type:'application/json'}),url=URL.createObjectURL(blob),a=document.createElement('a');
+  a.href=url;a.download=fn;document.body.appendChild(a);a.click();
+  setTimeout(function(){document.body.removeChild(a);URL.revokeObjectURL(url);},1000);
+}
+document.getElementById('importFile').addEventListener('change',function(e){
+  var file=e.target.files[0];if(!file)return;
+  var reader=new FileReader();
+  reader.onload=function(ev){
+    try{
+      var data=JSON.parse(ev.target.result);
+      var iS=data.spots||(Array.isArray(data)?data:[]), iC=data.courses||[];
+      var eid={};S.spots.forEach(function(s){eid[s.id]=true;});
+      var as=0;iS.forEach(function(s){if(!s.id)s.id=uuid();if(!eid[s.id]){S.spots.push(s);as++;}});
+      var ecid={};S.courses.forEach(function(c){ecid[c.id]=true;});
+      var ac=0;iC.forEach(function(c){if(!c.id)c.id=uuid();if(!ecid[c.id]){S.courses.push(c);ac++;}});
+      save();saveC();renderStats();renderContent();
+      showToast('スポット'+as+'件・コース'+ac+'件を追加しました',false);
+    }catch(err){showToast('ファイルの読み込みに失敗しました',false);}
+    e.target.value='';
+  };
+  reader.readAsText(file);
+});
+document.querySelectorAll('.tab-btn').forEach(function(btn){
+  btn.addEventListener('click',function(){
+    document.querySelectorAll('.tab-btn').forEach(function(b){b.classList.remove('active');});
+    btn.classList.add('active');S.tab=btn.dataset.tab;renderTopBar();renderContent();
+  });
+});
+document.getElementById('fab').addEventListener('click',function(){openForm(null);});
+document.getElementById('fabC').addEventListener('click',openCourseForm);
+document.getElementById('settingsBtn').addEventListener('click',openSettings);
+document.getElementById('filterBtn').addEventListener('click',openFilterSheet);
+document.getElementById('searchInput').addEventListener('input',function(){renderContent();document.getElementById('searchClear').classList.toggle('visible',this.value.length>0);});
+document.getElementById('searchClear').addEventListener('click',function(){document.getElementById('searchInput').value='';renderContent();document.getElementById('searchClear').classList.remove('visible');document.getElementById('searchInput').focus();});
+loadData();renderStats();renderTopBar();renderContent();
+}());
+</script>
+</body>
+</html>
