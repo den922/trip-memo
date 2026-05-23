@@ -1,0 +1,2350 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<title>Trip Memo</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:ital,wght@0,500;0,700;1,400&family=Noto+Sans+JP:wght@300;400;500;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.css"/>
+<link rel="stylesheet" href="https://unpkg.com/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css"/>
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://unpkg.com/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
+<style>
+/* ── CSS Variables ── */
+:root {
+  --bg:#F6F5F1;--surface:#FFFFFF;--surface-2:#F0EDE7;--border:#E2DDD5;
+  --text:#1A1916;--text-2:#5C574F;--text-3:#9C9488;
+  --accent:#2B4A3A;--accent-mid:#3D6B55;--accent-light:#E8F2EC;--accent-glow:rgba(43,74,58,0.12);
+  --gold:#C9A84C;--danger:#9B3A2F;--danger-light:#FDF0EE;
+  --want-line:#7AAF8E;--visited-bg:#E8F2EC;--visited-fg:#2B4A3A;
+  --radius:14px;--radius-sm:8px;
+  --shadow-sm:0 1px 4px rgba(26,25,22,0.07);
+  --shadow-lg:0 12px 48px rgba(26,25,22,0.13),0 4px 12px rgba(26,25,22,0.07);
+  --t:0.22s cubic-bezier(0.4,0,0.2,1);
+  --t-spring:0.38s cubic-bezier(0.34,1.56,0.64,1);
+}
+/* ── Reset ── */
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
+html,body{height:100%;overflow:hidden;}
+body{font-family:'Noto Sans JP',sans-serif;background:var(--bg);display:flex;flex-direction:column;color:var(--text);}
+
+/* ── Header ── */
+.header{background:var(--accent);padding:0 18px;height:58px;display:flex;align-items:center;justify-content:space-between;flex-shrink:0;position:relative;z-index:10;}
+.header::after{content:'';position:absolute;bottom:0;left:0;right:0;height:2px;background:linear-gradient(90deg,var(--gold),transparent 55%);}
+.header-left{display:flex;align-items:baseline;gap:8px;}
+.header-title{font-family:'Playfair Display',serif;font-weight:700;font-size:20px;color:#fff;letter-spacing:0.06em;}
+.header-sub{font-size:10px;color:rgba(255,255,255,0.45);font-family:'JetBrains Mono',monospace;letter-spacing:0.14em;}
+.header-right{display:flex;align-items:center;gap:6px;}
+.header-count{font-family:'JetBrains Mono',monospace;font-size:11px;color:rgba(255,255,255,0.55);background:rgba(255,255,255,0.1);padding:3px 10px;border-radius:20px;}
+.hbtn{background:rgba(255,255,255,0.12);border:none;color:rgba(255,255,255,0.8);width:32px;height:32px;border-radius:50%;font-size:15px;cursor:pointer;display:flex;align-items:center;justify-content:center;}
+.hbtn:active{background:rgba(255,255,255,0.24);}
+
+/* ── Stats Bar ── */
+.stats-bar{background:var(--accent-light);border-bottom:1px solid #CFDFD5;padding:0 18px;display:flex;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.stats-bar::-webkit-scrollbar{display:none;}
+.stat-item{display:flex;flex-direction:column;align-items:center;padding:9px 16px;flex-shrink:0;}
+.stat-num{font-family:'Playfair Display',serif;font-size:20px;font-weight:500;color:var(--accent);line-height:1;}
+.stat-lbl{font-size:10px;color:var(--accent-mid);letter-spacing:0.08em;margin-top:2px;white-space:nowrap;}
+.stat-div{width:1px;background:#C8DDD2;margin:10px 0;align-self:stretch;}
+
+/* ── Tabs ── */
+.tabs{background:var(--surface);border-bottom:1px solid var(--border);display:flex;flex-shrink:0;overflow-x:auto;-webkit-overflow-scrolling:touch;}
+.tabs::-webkit-scrollbar{display:none;}
+.tab-btn{flex-shrink:0;background:none;border:none;padding:12px 16px;font-family:'Noto Sans JP',sans-serif;font-size:12.5px;color:var(--text-3);letter-spacing:0.05em;cursor:pointer;position:relative;white-space:nowrap;}
+.tab-btn.active{color:var(--accent);font-weight:700;}
+.tab-btn.active::after{content:'';position:absolute;bottom:0;left:12px;right:12px;height:2px;background:var(--accent);border-radius:2px;}
+
+/* ── Top Bar (List search) ── */
+.top-bar{background:var(--surface);border-bottom:1px solid var(--border);display:none;flex-shrink:0;}
+.top-bar.visible{display:flex;align-items:center;gap:8px;padding:8px 14px;overflow:hidden;}
+.search-inner{flex:1;min-width:0;display:flex;align-items:center;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;padding:0 12px;gap:8px;transition:border-color var(--t),box-shadow var(--t);}
+.search-inner:focus-within{border-color:var(--accent-mid);box-shadow:0 0 0 3px var(--accent-glow);background:var(--surface);}
+.search-inner input{flex:1;min-width:0;padding:9px 0;border:none;background:transparent;font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);outline:none;-webkit-appearance:none;}
+.search-inner input::placeholder{color:var(--text-3);}
+.search-clear{width:20px;height:20px;border:none;background:var(--text-3);color:#fff;border-radius:50%;font-size:11px;cursor:pointer;display:none;align-items:center;justify-content:center;flex-shrink:0;}
+.search-clear.visible{display:flex;}
+.filter-btn{flex-shrink:0;background:var(--surface-2);border:1.5px solid var(--border);border-radius:10px;width:38px;height:38px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);position:relative;}
+.filter-btn.has-filter{background:var(--accent-light);border-color:var(--accent-mid);color:var(--accent);}
+.filter-badge{background:var(--accent);color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;display:flex;align-items:center;justify-content:center;position:absolute;top:-4px;right:-4px;}
+
+/* ── Content ── */
+.content{flex:1;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:12px 14px 96px;}
+.content::-webkit-scrollbar{width:4px;}
+.content::-webkit-scrollbar-thumb{background:var(--border);border-radius:2px;}
+
+/* ── Map ── */
+#mapWrap{flex:1;display:none;position:relative;}
+#mapWrap.visible{display:block;}
+#leafletMap{width:100%;height:100%;}
+
+/* Map search bar */
+.map-search-bar{position:absolute;top:10px;left:50px;right:10px;z-index:1000;display:flex;align-items:center;gap:6px;}
+.map-search-inner{flex:1;min-width:0;background:rgba(255,255,255,0.97);border:1.5px solid var(--border);border-radius:10px;display:flex;align-items:center;padding:0 10px;gap:6px;box-shadow:var(--shadow-sm);position:relative;}
+.map-filter-btn{flex-shrink:0;background:rgba(255,255,255,0.97);border:1.5px solid var(--border);border-radius:10px;width:38px;height:38px;font-size:17px;cursor:pointer;display:flex;align-items:center;justify-content:center;color:var(--text-2);box-shadow:var(--shadow-sm);position:relative;}
+.map-filter-btn.has-filter{background:var(--accent-light);border-color:var(--accent-mid);color:var(--accent);}
+.map-filter-badge{background:var(--accent);color:#fff;border-radius:50%;width:14px;height:14px;font-size:9px;display:flex;align-items:center;justify-content:center;position:absolute;top:-4px;right:-4px;}
+.map-search-bar input{flex:1;min-width:0;padding:9px 0;border:none;background:transparent;font-family:'Noto Sans JP',sans-serif;font-size:15px;color:var(--text);outline:none;-webkit-appearance:none;}
+.map-search-inner .map-search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;}
+.map-search-bar input::placeholder{color:var(--text-3);}
+.map-search-bar button{background:none;border:none;cursor:pointer;font-size:16px;color:var(--text-2);padding:4px;flex-shrink:0;}
+.map-search-results{position:absolute;top:calc(100% + 4px);left:0;right:0;background:rgba(255,255,255,0.98);border:1.5px solid var(--border);border-radius:10px;overflow:hidden;box-shadow:var(--shadow-lg);display:none;z-index:1001;}
+.map-search-results.visible{display:block;}
+.map-sr-item{padding:10px 14px;border-bottom:1px solid var(--border);cursor:pointer;font-size:13px;}
+.map-sr-item:last-child{border-bottom:none;}
+.map-sr-item:active{background:var(--accent-light);}
+.map-sr-name{font-weight:500;color:var(--text);}
+.map-sr-addr{font-size:11px;color:var(--text-3);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+
+/* Map toolbar (mode buttons) */
+.map-toolbar{position:absolute;bottom:16px;left:14px;z-index:1000;display:grid;grid-template-columns:1fr 1fr;gap:5px;}
+.map-tog{background:rgba(255,255,255,0.95);border:1.5px solid var(--border);border-radius:8px;padding:7px 8px;font-size:11px;font-family:'Noto Sans JP',sans-serif;color:var(--text-2);cursor:pointer;box-shadow:var(--shadow-sm);white-space:nowrap;display:flex;align-items:center;gap:4px;justify-content:center;transition:all var(--t);}
+.map-tog.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.map-tog:active{transform:scale(0.95);}
+.map-reset-btn{position:absolute;bottom:16px;right:14px;z-index:1000;background:rgba(255,255,255,0.95);border:1.5px solid var(--border);border-radius:8px;width:36px;height:36px;font-size:16px;cursor:pointer;box-shadow:var(--shadow-sm);display:flex;align-items:center;justify-content:center;transition:all var(--t);}
+.map-reset-btn:active{transform:scale(0.95);}
+
+/* Map legends */
+.map-legend{position:absolute;bottom:16px;right:14px;background:rgba(255,255,255,0.92);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:11px;z-index:1000;display:flex;flex-direction:column;gap:5px;}
+.legend-item{display:flex;align-items:center;gap:6px;color:var(--text-2);}
+.legend-dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;}
+.route-legend{position:absolute;right:14px;background:rgba(255,255,255,0.95);border:1px solid var(--border);border-radius:10px;font-size:11px;z-index:1000;display:none;flex-direction:column;box-shadow:var(--shadow-sm);overflow:hidden;min-width:148px;}
+.route-legend.visible{display:flex;}
+.legend-header{display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border);gap:12px;cursor:pointer;user-select:none;}
+.legend-header:active{background:var(--surface-2);}
+.legend-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.08em;text-transform:uppercase;}
+.legend-toggle{width:20px;height:20px;border-radius:50%;background:var(--surface-2);border:1px solid var(--border);cursor:pointer;font-size:12px;color:var(--text-2);display:flex;align-items:center;justify-content:center;flex-shrink:0;font-weight:700;line-height:1;}
+.legend-body{padding:6px 10px 10px;display:flex;flex-direction:column;gap:5px;max-height:42vh;overflow-y:auto;}
+.legend-body::-webkit-scrollbar{width:3px;}
+.legend-body::-webkit-scrollbar-thumb{background:var(--border);}
+.legend-body.collapsed{display:none;}
+.rl-item{display:flex;align-items:center;gap:7px;color:var(--text-2);}
+.rl-line{width:22px;height:4px;border-radius:2px;flex-shrink:0;}
+
+/* ── Cards ── */
+.empty{text-align:center;padding:72px 24px;}
+.empty-icon{font-size:48px;margin-bottom:14px;opacity:0.22;display:block;}
+.empty-title{font-family:'Playfair Display',serif;font-size:19px;color:var(--text-2);margin-bottom:8px;}
+.empty-sub{font-size:13.5px;color:var(--text-3);line-height:1.75;white-space:pre-line;}
+.swipe-wrap{position:relative;overflow:hidden;margin-bottom:8px;border-radius:var(--radius);}
+.delete-bg{position:absolute;right:0;top:0;bottom:0;width:80px;background:var(--danger);color:#fff;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;border-radius:var(--radius);gap:4px;flex-direction:column;cursor:pointer;opacity:0;pointer-events:none;transition:opacity 0.15s;}
+.swipe-wrap.is-swiping .delete-bg{opacity:1;pointer-events:auto;}
+.delbg-icon{font-size:20px;}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:13px 15px 13px 18px;cursor:pointer;position:relative;z-index:1;box-shadow:var(--shadow-sm);user-select:none;transition:box-shadow var(--t),transform 0.18s ease;}
+.card::before{content:'';position:absolute;left:0;top:0;bottom:0;width:4px;border-radius:var(--radius) 0 0 var(--radius);background:transparent;}
+.card.must::before{background:var(--accent);}
+.card.want::before{background:var(--want-line);}
+.card.vis{opacity:0.75;}
+.card.vis::before{background:transparent !important;}
+.card:active{transform:scale(0.986);box-shadow:none;}
+.card-row1{display:flex;align-items:baseline;justify-content:space-between;margin-bottom:3px;gap:6px;}
+.card-name{font-size:15px;font-weight:700;color:var(--text);line-height:1.35;flex:1;min-width:0;}
+.card-badges{display:flex;gap:4px;align-items:center;flex-wrap:wrap;flex:1;min-width:0;}
+.badge{display:inline-flex;align-items:center;padding:2px 7px;border-radius:20px;font-size:10.5px;font-family:'JetBrains Mono',monospace;white-space:nowrap;}
+.b-type{background:var(--surface-2);color:var(--text-2);border:1px solid var(--border);}
+.b-vis{background:var(--visited-bg);color:var(--visited-fg);border:1px solid #CFDFD5;}
+.b-unvis{background:var(--surface-2);color:var(--text-3);border:1px solid var(--border);}
+.b-must{background:var(--accent);color:#fff;border:none;font-size:10px;}
+.b-want{background:var(--accent-light);color:var(--accent-mid);border:1px solid #CFDFD5;font-size:10px;}
+.b-bkup{background:transparent;color:var(--text-3);border:none;font-size:10px;font-weight:300;}
+.card-row2{display:flex;align-items:center;justify-content:space-between;gap:6px;margin-bottom:3px;}
+.card-area-row{display:flex;align-items:center;gap:4px;}
+.card-area{font-family:'JetBrains Mono',monospace;font-size:10px;color:var(--text-3);letter-spacing:0.04em;}
+.card-sub{font-size:10px;color:var(--text-3);}
+.card-dot{width:2px;height:2px;border-radius:50%;background:var(--border);}
+.card-memo{display:none;}
+.card-tags{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px;}
+.tag{font-size:11px;color:var(--accent-mid);background:var(--accent-light);padding:2px 7px;border-radius:12px;}
+
+/* ── Popup ── */
+.pp-name{font-weight:700;color:var(--text);font-size:14px;margin-bottom:4px;}
+.pp-meta{color:var(--text-3);font-size:11px;margin-bottom:4px;}
+.pp-memo{color:var(--text-2);font-size:12px;line-height:1.5;font-weight:300;}
+
+/* ── Section / Courses / Recommend ── */
+.sec-head{font-family:'Playfair Display',serif;font-size:16px;font-weight:700;color:var(--accent);margin:4px 0 12px;display:flex;align-items:center;justify-content:space-between;}
+.sec-action{font-family:'Noto Sans JP',sans-serif;font-size:12px;font-weight:400;color:var(--accent-mid);cursor:pointer;}
+.sa-section{margin-top:18px;padding-top:14px;border-top:1px solid var(--border);}
+.sa-title{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:10px;}
+.sa-chip{display:inline-flex;align-items:center;gap:5px;background:var(--surface-2);border:1px solid var(--border);border-radius:8px;padding:7px 11px;margin:0 6px 6px 0;font-size:13px;cursor:pointer;}
+.sa-chip:active{background:var(--border);}
+.sa-name{color:var(--text);font-weight:500;}
+.sa-sub{font-size:10px;color:var(--text-3);}
+.crs-card{background:var(--surface);border:1px solid var(--border);border-radius:var(--radius);padding:14px 16px;margin-bottom:10px;box-shadow:var(--shadow-sm);}
+.crs-title{font-size:15px;font-weight:700;color:var(--text);margin-bottom:3px;}
+.crs-desc{font-size:12.5px;color:var(--text-2);font-weight:300;margin-bottom:10px;}
+.crs-tl{border-left:2px solid var(--accent-light);padding-left:14px;display:flex;flex-direction:column;gap:8px;margin-bottom:10px;}
+.tl-day{position:relative;}
+.tl-day::before{content:'';position:absolute;left:-18px;top:5px;width:8px;height:8px;border-radius:50%;background:var(--accent-mid);border:2px solid var(--surface);}
+.tl-lbl{font-family:'JetBrains Mono',monospace;font-size:9px;color:var(--accent-mid);letter-spacing:0.1em;text-transform:uppercase;}
+.tl-name{font-size:13.5px;font-weight:500;color:var(--text);margin:1px 0;}
+.tl-memo{font-size:12px;color:var(--text-3);font-weight:300;}
+.crs-spots{display:flex;flex-wrap:wrap;gap:5px;}
+.crs-chip{font-size:11px;color:var(--text-2);background:var(--surface-2);border:1px solid var(--border);padding:3px 9px;border-radius:20px;}
+.rec-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--accent-mid);border-radius:var(--radius);padding:14px 15px;margin-bottom:8px;display:flex;align-items:flex-start;box-shadow:var(--shadow-sm);}
+.rec-num{font-family:'Playfair Display',serif;font-size:28px;font-weight:500;color:var(--border);line-height:1;margin-right:12px;flex-shrink:0;min-width:32px;}
+.rec-body{flex:1;min-width:0;}
+.rec-name{font-size:14.5px;font-weight:700;color:var(--text);margin-bottom:4px;}
+.rec-reason{font-size:12.5px;color:var(--text-2);line-height:1.65;font-weight:300;}
+.rec-trend{font-size:11.5px;color:var(--accent-mid);margin-top:6px;}
+.rec-save{flex-shrink:0;margin-left:10px;padding:6px 12px;background:var(--accent-light);color:var(--accent);border:1px solid #CFDFD5;border-radius:8px;font-size:12px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap;}
+.rec-save:active{background:#CFDFD5;}
+
+/* ── FAB ── */
+.fab-wrap{position:fixed;right:18px;bottom:26px;z-index:100;display:flex;flex-direction:column;align-items:flex-end;gap:10px;}
+.fab{width:54px;height:54px;border-radius:50%;border:none;background:var(--accent);color:#fff;font-size:26px;cursor:pointer;box-shadow:0 6px 24px rgba(43,74,58,0.38);display:flex;align-items:center;justify-content:center;transition:transform var(--t-spring);}
+.fab:active{transform:scale(0.9);}
+.fab-c{width:54px;height:54px;font-size:26px;background:var(--gold);box-shadow:0 4px 16px rgba(201,168,76,0.35);}
+
+/* ── Toast ── */
+.toast{position:fixed;bottom:96px;left:50%;transform:translateX(-50%) translateY(20px);background:var(--text);color:rgba(255,255,255,0.9);padding:12px 16px;border-radius:12px;display:flex;gap:12px;align-items:center;opacity:0;pointer-events:none;transition:opacity 0.25s,transform 0.3s cubic-bezier(0.34,1.56,0.64,1);white-space:nowrap;font-size:13.5px;z-index:500;box-shadow:var(--shadow-lg);}
+.toast.show{opacity:1;pointer-events:auto;transform:translateX(-50%) translateY(0);}
+.t-undo{background:none;border:1px solid rgba(255,255,255,0.25);color:#fff;font-weight:600;font-size:12px;cursor:pointer;padding:4px 10px;border-radius:6px;font-family:'Noto Sans JP',sans-serif;}
+
+/* ── Sheet / Overlay ── */
+.overlay{position:fixed;inset:0;background:rgba(26,25,22,0.42);opacity:0;pointer-events:none;transition:opacity 0.3s;z-index:300;}
+.overlay.show{opacity:1;pointer-events:auto;}
+.sheet{position:fixed;bottom:0;left:0;right:0;background:var(--surface);border-radius:22px 22px 0 0;padding:0 20px 44px;max-height:92vh;overflow-y:auto;-webkit-overflow-scrolling:touch;transform:translateY(100%);transition:transform 0.38s cubic-bezier(0.32,0.72,0,1);z-index:400;}
+.sheet.sheet-course{padding:0;overflow:hidden;display:flex;flex-direction:column;height:88vh;max-height:88vh;border-radius:22px 22px 0 0;}
+.sheet.sheet-course #sheetContent{display:flex;flex-direction:column;flex:1;min-height:0;overflow:hidden;}
+.sheet-course .course-fixed{flex-shrink:0;padding:20px 20px 0;}
+.sheet-course .course-list{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:0 20px;}
+.sheet-course .course-footer{flex-shrink:0;padding:12px 20px;padding-bottom:max(12px,env(safe-area-inset-bottom,12px));border-top:1px solid var(--border);background:var(--surface);}
+.sheet-course .checklist{border:none;border-radius:0;overflow:visible;}
+.cl-item{display:flex;align-items:center;gap:10px;padding:9px 13px;border-bottom:1px solid var(--border);cursor:pointer;}
+.cl-item:last-child{border-bottom:none;}
+.cl-item input[type=checkbox]{width:16px;height:16px;accent-color:var(--accent);}
+.cl-name{font-size:14px;color:var(--text);flex:1;}
+.cl-area{font-size:11px;color:var(--text-3);}
+
+/* ── Settings ── */
+.set-sec{font-family:'JetBrains Mono',monospace;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.1em;text-transform:uppercase;margin-bottom:9px;}
+.set-desc{font-size:12.5px;color:var(--text-3);line-height:1.7;margin-bottom:13px;}
+.set-hr{border:none;border-top:1px solid var(--border);margin:20px 0;}
+
+/* ── Misc ── */
+mark.hl{background:#FFF5C2;color:var(--text);border-radius:2px;padding:0 1px;}
+.guide-pr-box{background:var(--accent-light);border-radius:var(--radius);padding:14px 16px;margin-bottom:14px;}
+.guide-pr-title{font-family:'Playfair Display',serif;font-size:16px;color:var(--accent);margin-bottom:6px;}
+.guide-pr-body{font-size:13px;color:var(--text-2);line-height:1.7;font-weight:300;}
+.guide-problems{display:flex;flex-direction:column;gap:7px;margin-bottom:16px;}
+.guide-pr-row{display:grid;grid-template-columns:1fr auto 1fr;gap:6px;align-items:center;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:10px 12px;}
+.guide-pr-prob{font-size:12px;color:var(--danger);line-height:1.5;}
+.guide-pr-arr{font-size:16px;color:var(--gold);font-weight:700;text-align:center;}
+.guide-pr-sol{font-size:12px;color:var(--accent-mid);line-height:1.5;}
+.guide-section{border:1px solid var(--border);border-radius:var(--radius);overflow:hidden;margin-bottom:10px;}
+.guide-sec-head{display:flex;align-items:center;gap:10px;padding:12px 14px;background:var(--surface);cursor:pointer;user-select:none;}
+.guide-sec-head:active{background:var(--surface-2);}
+.guide-sec-num{background:var(--gold);color:#fff;border-radius:4px;width:22px;height:20px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;font-family:'JetBrains Mono',monospace;}
+.guide-sec-title{font-size:14px;font-weight:700;color:var(--accent);flex:1;}
+.guide-arrow{font-size:11px;color:var(--text-3);}
+.guide-sec-body{padding:12px 14px;background:var(--surface-2);border-top:1px solid var(--border);}
+.guide-body{font-size:13px;color:var(--text-2);line-height:1.7;font-weight:300;margin-bottom:10px;}
+.guide-steps{display:flex;flex-direction:column;gap:6px;margin-bottom:10px;}
+.guide-step{display:flex;align-items:flex-start;gap:10px;font-size:13px;color:var(--text-2);}
+.guide-step-num{background:var(--accent);color:#fff;border-radius:50%;width:20px;height:20px;font-size:10px;font-weight:700;display:flex;align-items:center;justify-content:center;flex-shrink:0;margin-top:1px;}
+.guide-tags{display:flex;flex-direction:column;gap:5px;}
+.guide-tag-row{display:flex;align-items:center;gap:8px;}
+.guide-tag-label{background:var(--accent);color:#fff;font-size:10px;font-weight:700;padding:2px 9px;border-radius:20px;white-space:nowrap;font-family:'JetBrains Mono',monospace;}
+.guide-tag-desc{font-size:12px;color:var(--text-3);}
+.guide-tip-card{background:var(--surface);border:1px solid var(--border);border-left:3px solid var(--gold);border-radius:8px;padding:12px 14px;margin-bottom:8px;}
+.guide-tip-card:last-child{margin-bottom:0;}
+.guide-tip-title{font-size:12px;font-weight:700;color:var(--accent);margin-bottom:5px;}
+.guide-tip-body{font-size:12px;color:var(--text-2);line-height:1.7;font-weight:300;}
+.btn-edit-course{background:transparent;border:1px solid var(--border);border-radius:6px;padding:3px 10px;font-size:11px;color:var(--text-2);font-family:'Noto Sans JP',sans-serif;cursor:pointer;}
+.btn-edit-course:active{background:var(--surface-2);}
+.course-search-wrap{margin-bottom:8px;}
+.course-search{width:100%;box-sizing:border-box;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Noto Sans JP',sans-serif;font-size:15px;color:var(--text);background:var(--surface-2);outline:none;-webkit-appearance:none;}
+.course-search:focus{border-color:var(--accent-mid);background:var(--surface);box-shadow:0 0 0 3px var(--accent-glow);}
+.course-filter{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:8px;}
+.course-filter-chip{padding:5px 12px;border-radius:20px;font-size:12px;font-family:'Noto Sans JP',sans-serif;border:1.5px solid var(--border);background:var(--surface-2);color:var(--text-2);cursor:pointer;}
+.course-filter-chip.on{background:var(--accent);color:#fff;border-color:var(--accent);}
+.tag-chips{display:flex;flex-wrap:wrap;gap:6px;min-height:32px;padding:6px 10px;border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface-2);margin-bottom:6px;}
+.tag-chip{display:inline-flex;align-items:center;gap:4px;background:var(--accent-light);color:var(--accent);border:1px solid #CFDFD5;border-radius:20px;padding:3px 10px;font-size:12px;}
+.tag-chip-del{background:none;border:none;color:var(--accent-mid);font-size:13px;cursor:pointer;padding:0;line-height:1;margin-left:2px;}
+.tag-input-row{display:flex;gap:6px;}
+.tag-input-row input{flex:1;min-width:0;padding:9px 13px;border:1.5px solid var(--border);border-radius:var(--radius-sm);font-family:'Noto Sans JP',sans-serif;font-size:16px;color:var(--text);background:var(--surface-2);outline:none;-webkit-appearance:none;}
+.tag-input-row input:focus{border-color:var(--accent-mid);background:var(--surface);box-shadow:0 0 0 3px var(--accent-glow);}
+.tag-add-btn{flex-shrink:0;padding:0 14px;background:var(--accent-light);color:var(--accent);border:1.5px solid #CFDFD5;border-radius:var(--radius-sm);font-size:13px;font-family:'Noto Sans JP',sans-serif;cursor:pointer;white-space:nowrap;}
+.tag-add-btn:active{background:#CFDFD5;}
+.tag-suggest{border:1.5px solid var(--border);border-radius:var(--radius-sm);background:var(--surface);overflow:hidden;display:none;margin-top:2px;}
+.tag-suggest.visible{display:block;}
+.tag-suggest-item{padding:9px 13px;border-bottom:1px solid var(--border);font-size:13px;cursor:pointer;display:flex;align-items:center;gap:7px;color:var(--text);}
+.tag-suggest-item:last-child{border-bottom:none;}
+.tag-suggest-item:active{background:var(--accent-light);}
+@keyframes pulse{0%,100%{opacity:0.4}50%{opacity:1}}
+.dots span{animation:pulse 1.4s ease-in-out infinite;display:inline-block;width:6px;height:6px;border-radius:50%;background:var(--accent-mid);margin:0 2px;}
+.dots span:nth-child(2){animation-delay:0.2s;}
+.dots span:nth-child(3){animation-delay:0.4s;}
+.leaflet-popup-content-wrapper{border-radius:10px;box-shadow:var(--shadow-lg);font-family:'Noto Sans JP',sans-serif;}
+.leaflet-popup-content{margin:12px 16px;font-size:13px;}
+</style>
+</head>
+<body>
+
+<!-- Header -->
+<div class="header">
+  <div class="header-left">
+    <span class="header-title">Trip Memo</span>
+    <span class="header-sub">NOTEBOOK</span>
+  </div>
+  <div class="header-right">
+    <span class="header-count" id="hCount">0 件</span>
+    <button class="hbtn" id="settingsBtn">&#9881;</button>
+  </div>
+</div>
+
+<!-- Stats -->
+<div class="stats-bar" id="statsBar"></div>
+
+<!-- Tabs -->
+<div class="tabs">
+  <button class="tab-btn active" data-tab="list">&#128203; リスト</button>
+  <button class="tab-btn" data-tab="map">&#128506; マップ</button>
+  <button class="tab-btn" data-tab="courses">&#128739; コース</button>
+  <button class="tab-btn" data-tab="recommend">&#10024; おすすめ</button>
+</div>
+
+<!-- List search bar -->
+<div class="top-bar" id="topBar">
+  <div class="search-inner">
+    <span style="font-size:13px;color:var(--text-3)">&#128269;</span>
+    <input id="searchInput" placeholder="名前・タグ・エリアで検索..." autocomplete="off" inputmode="search">
+    <button class="search-clear" id="searchClear">&#10005;</button>
+  </div>
+  <button class="filter-btn" id="filterBtn" title="絞り込み・並び替え">&#9776;<span class="filter-badge" id="filterBadge" style="display:none">0</span></button>
+</div>
+
+<!-- Content -->
+<div class="content" id="content"></div>
+
+<!-- Map -->
+<div id="mapWrap">
+  <div id="leafletMap"></div>
+  <div class="map-search-bar" id="mapSearchBar">
+    <div class="map-search-inner">
+      <input type="text" id="mapSearchInput" placeholder="地名・施設名で地図移動..." autocomplete="off">
+      <button id="mapSearchBtn">&#128269;</button>
+      <div class="map-search-results" id="mapSearchResults"></div>
+    </div>
+    <button class="map-filter-btn" id="mapFilterBtn" title="絞り込み">&#9776;<span class="map-filter-badge" id="mapFilterBadge" style="display:none"></span></button>
+  </div>
+  <div class="map-toolbar">
+    <button class="map-tog" id="modeBtn0" data-mode="0">&#128506; 全国高速</button>
+    <button class="map-tog" id="modeBtn1" data-mode="1">&#128313; 東日本高速</button>
+    <button class="map-tog" id="modeBtn2" data-mode="2">&#128308; 西日本高速</button>
+    <button class="map-tog" id="modeBtn3" data-mode="3">&#128645; 新幹線</button>
+  </div>
+  <button class="map-reset-btn" id="mapResetBtn" title="ホームに戻る">&#127968;</button>
+  <div class="map-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2B4A3A"></div>訪問済み</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#7AAF8E"></div>行きたい</div>
+  </div>
+  <div class="route-legend" id="routeLegend">
+    <div class="legend-header" id="routeLegendHeader">
+      <span class="legend-title" id="routeLegendTitle">路線</span>
+      <span class="legend-toggle" id="routeLegendToggle">&#8722;</span>
+    </div>
+    <div class="legend-body" id="routeLegendBody"></div>
+  </div>
+</div>
+
+<!-- FAB -->
+<div class="fab-wrap">
+  <button class="fab fab-c" id="fabC" style="display:none">&#128506;</button>
+  <button class="fab" id="fab">&#65291;</button>
+</div>
+
+<!-- Toast -->
+<div class="toast" id="toast">
+  <span id="toastTxt"></span>
+  <button class="t-undo" id="toastUndo" style="display:none">元に戻す</button>
+</div>
+
+<!-- Misc -->
+<input type="file" id="importFile" accept=".json" style="display:none">
+<div class="overlay" id="overlay"></div>
+<div class="sheet" id="sheet">
+  <div class="sh-handle"></div>
+  <div id="sheetContent"></div>
+</div>
+
+<script>
+(function(){
+'use strict';
+
+/* ─────────────────────────────────────────
+   CONSTANTS
+───────────────────────────────────────── */
+var KS  = 'tripmemo_spots_v1';
+var KC  = 'tripmemo_courses_v1';
+var KN  = 'tripmemo_nas_v1';
+var MG  = 10; // max backup generations
+
+var AREAS = ['北海道','東北','関東甲信越','北陸・東海','近畿','中国・四国','九州・沖縄','海外'];
+// エリア近接順（コース作成時のスポット並び替えに使用）
+var AREA_NEIGHBORS = {
+  '北海道':    ['東北','関東甲信越','北陸・東海','近畿','中国・四国','九州・沖縄','海外'],
+  '東北':      ['北海道','関東甲信越','北陸・東海','近畿','中国・四国','九州・沖縄','海外'],
+  '関東甲信越': ['東北','北陸・東海','近畿','中国・四国','北海道','九州・沖縄','海外'],
+  '北陸・東海': ['関東甲信越','近畿','東北','中国・四国','北海道','九州・沖縄','海外'],
+  '近畿':      ['北陸・東海','中国・四国','関東甲信越','九州・沖縄','東北','北海道','海外'],
+  '中国・四国': ['近畿','九州・沖縄','北陸・東海','関東甲信越','東北','北海道','海外'],
+  '九州・沖縄': ['中国・四国','近畿','北陸・東海','関東甲信越','東北','北海道','海外'],
+  '海外':      ['九州・沖縄','中国・四国','近畿','北陸・東海','関東甲信越','東北','北海道']
+};
+var TYPES = ['観光','子供宿','高級宿','グランピング・ヴィラ','グルメ','体験','遊び場','海外'];
+var PRIOS = [
+  {k:'must', l:'MUST', d:'絶対行きたい'},
+  {k:'want', l:'WANT', d:'とても行きたい'},
+  {k:'wish', l:'WISH', d:'行きたい'}
+];
+var SORTS = [
+  {k:'added',   l:'追加順',     i:'&#128336;'},
+  {k:'area',    l:'エリア順',   i:'&#127758;'},
+  {k:'prio',    l:'行きたい度順', i:'&#128204;'},
+  {k:'visited', l:'未訪問を上に', i:'&#9711;'}
+];
+
+/* ─────────────────────────────────────────
+   STATE
+───────────────────────────────────────── */
+var S = {
+  spots:    [],
+  courses:  [],
+  tab:      'list',
+  fArea:    'all',
+  fType:    'all',
+  fVis:     'all',
+  fPrio:    'all',
+  fStar:    'all',
+  sort:     'added',
+  lastDel:  null,
+  toastT:   null,
+  sw:       {el:null, x0:0, x1:0, y0:0, moved:false},
+  recData:  [],
+  // Map state
+  map:        null,
+  cluster:    null,
+  mapMode:    null,   // null = no mode selected, 0-3 = active mode
+  routeLines: []      // active polylines on map
+};
+
+/* ─────────────────────────────────────────
+   UTILITIES
+───────────────────────────────────────── */
+function uuid() {
+  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+    var r = Math.random() * 16 | 0;
+    return (c === 'x' ? r : (r & 0x3 | 0x8)).toString(16);
+  });
+}
+
+function nowStr() {
+  var d = new Date();
+  return [d.getFullYear(), p2(d.getMonth()+1), p2(d.getDate())].join('-') +
+    '_' + p2(d.getHours()) + p2(d.getMinutes());
+}
+
+function p2(n) { return String(n).padStart(2, '0'); }
+
+function esc(s) {
+  return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function hl(str, q) {
+  var e = esc(str);
+  if (!q) return e;
+  return e.replace(
+    new RegExp(q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'gi'),
+    function(m) { return '<mark class="hl">' + m + '</mark>'; }
+  );
+}
+
+/* ─────────────────────────────────────────
+   STORAGE
+───────────────────────────────────────── */
+function loadData() {
+  try { S.spots   = JSON.parse(localStorage.getItem(KS) || '[]'); } catch(e) { S.spots = []; }
+  try { S.courses = JSON.parse(localStorage.getItem(KC) || '[]'); } catch(e) { S.courses = []; }
+}
+
+function save()  { try { localStorage.setItem(KS, JSON.stringify(S.spots));   } catch(e) {} }
+function saveC() { try { localStorage.setItem(KC, JSON.stringify(S.courses)); } catch(e) {} }
+function loadNas() { try { return JSON.parse(localStorage.getItem(KN) || 'null'); } catch(e) { return null; } }
+function saveNas(c) { try { localStorage.setItem(KN, JSON.stringify(c)); } catch(e) {} }
+
+/* ─────────────────────────────────────────
+   FILTERING / SORTING
+───────────────────────────────────────── */
+function filtered() {
+  var q = (document.getElementById('searchInput') || {value:''}).value.trim().toLowerCase();
+  return S.spots.filter(function(s) {
+    if (S.fArea !== 'all' && s.area !== S.fArea) return false;
+    if (S.fType !== 'all' && s.type !== S.fType) return false;
+    if (S.fVis  === 'visited'   && !s.visited) return false;
+    if (S.fVis  === 'unvisited' &&  s.visited) return false;
+    if (S.fPrio !== 'all' && (s.prio || 'wish') !== S.fPrio) return false;
+    if (S.fStar !== 'all') {
+      if (!s.visited) return false;
+      if (String(s.rating || 0) !== S.fStar) return false;
+    }
+    if (q) {
+      var h = [s.name, s.area, s.pref, s.memo, s.addr].concat(s.tags || []).join(' ').toLowerCase();
+      if (h.indexOf(q) === -1) return false;
+    }
+    return true;
+  });
+}
+
+function sortItems(arr) {
+  var a = arr.slice(), po = {must:0, want:1, wish:2};
+  if (S.sort === 'area')    a.sort(function(x,y){ var a=x.area||'',b=y.area||''; return a<b?-1:a>b?1:0; });
+  else if (S.sort === 'prio')    a.sort(function(x,y){ return (po[x.prio]||2) - (po[y.prio]||2); });
+  else if (S.sort === 'visited') a.sort(function(x,y){ return x.visited === y.visited ? 0 : (x.visited ? 1 : -1); });
+  return a;
+}
+
+function fCount() {
+  var n = 0;
+  if (S.fArea !== 'all') n++;
+  if (S.fType !== 'all') n++;
+  if (S.fVis  !== 'all') n++;
+  if (S.fPrio !== 'all') n++;
+  if (S.fStar !== 'all') n++;
+  return n;
+}
+
+/* ─────────────────────────────────────────
+   RENDER: STATS + TOPBAR + CONTENT
+───────────────────────────────────────── */
+function renderStats() {
+  var tot = S.spots.length, vis = 0, must = 0, areas = [];
+  S.spots.forEach(function(s) {
+    if (s.visited) vis++;
+    if (!s.visited && s.prio === 'must') must++;
+    if (areas.indexOf(s.area) === -1) areas.push(s.area);
+  });
+  document.getElementById('statsBar').innerHTML =
+    si(tot,'スポット') + sd() + si(vis,'訪問済み') + sd() +
+    si(tot-vis,'行きたい') + sd() + si(must,'MUST') + sd() +
+    si(S.courses.length,'コース') + sd() + si(areas.length,'エリア');
+  document.getElementById('hCount').textContent = tot + ' 件';
+}
+
+function si(n, l) { return '<div class="stat-item"><div class="stat-num">' + n + '</div><div class="stat-lbl">' + l + '</div></div>'; }
+function sd() { return '<div class="stat-div"></div>'; }
+
+function renderTopBar() {
+  var tb  = document.getElementById('topBar');
+  var fc  = document.getElementById('fabC');
+  var fab = document.getElementById('fab');
+  if (S.tab === 'list') {
+    tb.classList.add('visible');
+    fc.style.display = 'none';
+    if (fab) fab.style.display = '';
+  } else if (S.tab === 'courses') {
+    tb.classList.remove('visible');
+    fc.style.display = 'flex';
+    if (fab) fab.style.display = '';
+  } else if (S.tab === 'map') {
+    tb.classList.remove('visible');
+    fc.style.display = 'none';
+    if (fab) fab.style.display = 'none';
+  } else {
+    tb.classList.remove('visible');
+    fc.style.display = 'none';
+    if (fab) fab.style.display = '';
+  }
+  var n  = fCount();
+  var bd = document.getElementById('filterBadge');
+  var fb = document.getElementById('filterBtn');
+  if (bd) { bd.style.display = n ? 'flex' : 'none'; bd.textContent = n; }
+  if (fb) fb.classList.toggle('has-filter', n > 0);
+  // マップフィルターバッジも同期
+  var mbd = document.getElementById('mapFilterBadge');
+  var mfb = document.getElementById('mapFilterBtn');
+  if (mbd) { mbd.style.display = n ? 'flex' : 'none'; mbd.textContent = n; }
+  if (mfb) mfb.classList.toggle('has-filter', n > 0);
+}
+
+function renderContent() {
+  var cont = document.getElementById('content');
+  var mw   = document.getElementById('mapWrap');
+  if (S.tab === 'map') {
+    cont.style.display = 'none';
+    mw.classList.add('visible');
+    renderMap();
+  } else {
+    cont.style.display = '';
+    mw.classList.remove('visible');
+    if (S.tab === 'list')          renderList();
+    else if (S.tab === 'courses')  renderCourses();
+    else                           renderRecommend();
+  }
+}
+
+/* ─────────────────────────────────────────
+   RENDER: LIST
+───────────────────────────────────────── */
+function renderList() {
+  var q     = document.getElementById('searchInput').value.trim();
+  var items = sortItems(filtered());
+  var c     = document.getElementById('content');
+  document.getElementById('searchClear').classList.toggle('visible', q.length > 0);
+
+  if (!items.length) {
+    c.innerHTML = '<div class="empty">' +
+      '<span class="empty-icon">&#9998;</span>' +
+      '<div class="empty-title">' + (q || fCount() > 0 ? '条件に合うスポットがありません' : 'まだスポットがありません') + '</div>' +
+      '<div class="empty-sub">' + (q || fCount() > 0 ? '条件を変更してみてください' : '右下の ＋ ボタンで\n最初のスポットを追加しましょう') + '</div>' +
+      '</div>';
+    return;
+  }
+
+  S.sw.el = null;
+  var html = '';
+  items.forEach(function(s) {
+    var oi = S.spots.indexOf(s);
+    var th = (s.tags || []).map(function(t) { return '<span class="tag">#' + esc(t) + '</span>'; }).join('');
+    var ph = '';
+    if (!s.visited) {
+      if      (s.prio === 'must') ph = '<span class="badge b-must">MUST</span>';
+      else if (s.prio === 'want') ph = '<span class="badge b-want">WANT</span>';
+    }
+    var cc = 'card' + (s.visited ? ' vis' : s.prio === 'must' ? ' must' : s.prio === 'want' ? ' want' : '');
+    html += '<div class="swipe-wrap" data-idx="' + oi + '">' +
+      '<div class="delete-bg"><div class="delbg-icon">&#128465;</div>削除</div>' +
+      '<div class="' + cc + '">' +
+        '<div class="card-row1">' +
+          '<div class="card-name">' + hl(s.name, q) + '</div>' +
+          '<div class="card-area-row">' +
+            '<span class="card-area">' + esc(s.area || '') + '</span>' +
+            (s.pref ? '<div class="card-dot"></div><span class="card-sub">' + esc(s.pref) + '</span>' : '') +
+          '</div>' +
+        '</div>' +
+        '<div class="card-row2">' +
+          '<div class="card-badges">' + ph +
+            '<span class="badge ' + (s.visited ? 'b-vis' : 'b-unvis') + '">' + (s.visited ? '&#10003; 訪問済' : '&#9711; 行きたい') + '</span>' +
+            '<span class="badge b-type">' + esc(s.type) + '</span>' +
+          '</div>' +
+          (s.exportedAt ? '<span class="badge b-bkup">保存済</span>' : '') +
+        '</div>' +
+        (th ? '<div class="card-tags">' + th + '</div>' : '') +
+      '</div></div>';
+  });
+
+  c.innerHTML = html;
+  c.querySelectorAll('.swipe-wrap').forEach(function(w) {
+    var oi   = parseInt(w.dataset.idx, 10);
+    var card = w.querySelector('.card');
+    var bg   = w.querySelector('.delete-bg');
+    bg.addEventListener('click', function() { delSpot(oi); });
+    card.addEventListener('click', function() { if (!S.sw.moved) openView(oi); });
+    card.addEventListener('touchstart', function(e) { swStart(e, card); }, {passive:true});
+    card.addEventListener('touchmove',  function(e) { swMove(e, card);  }, {passive:true});
+    card.addEventListener('touchend',   function(e) { swEnd(e, card);   });
+  });
+}
+
+/* ─────────────────────────────────────────
+   RENDER: COURSES
+───────────────────────────────────────── */
+function renderCourses() {
+  var c = document.getElementById('content');
+  if (!S.courses.length) {
+    c.innerHTML = '<div class="empty"><span class="empty-icon">&#128739;</span><div class="empty-title">コースがありません</div><div class="empty-sub">右下のボタンで\nモデルコースを作りましょう</div></div>';
+    return;
+  }
+  var html = '<div class="sec-head">モデルコース</div>';
+  S.courses.forEach(function(cr, ci) {
+    var dh = (cr.days || []).map(function(d) {
+      var sp = null; S.spots.forEach(function(x) { if (x.id === d.spotId) sp = x; });
+      return '<div class="tl-day"><div class="tl-lbl">Day ' + d.day + '</div>' +
+        '<div class="tl-name">' + (sp ? esc(sp.name) : '未設定') + '</div>' +
+        (d.memo ? '<div class="tl-memo">' + esc(d.memo) + '</div>' : '') + '</div>';
+    }).join('');
+    var ch = (cr.days || []).map(function(d) {
+      var sp = null; S.spots.forEach(function(x) { if (x.id === d.spotId) sp = x; });
+      return sp ? '<span class="crs-chip">&#128205; ' + esc(sp.name) + '</span>' : '';
+    }).filter(Boolean).join('');
+    html += '<div class="crs-card">' +
+      '<div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:3px">' +
+        '<div class="crs-title">' + esc(cr.name) + '</div>' +
+        '<div style="display:flex;gap:8px;align-items:center">' +
+          '<button class="btn-edit-course" data-eci="' + ci + '">編集</button>' +
+          '<button class="sh-close" data-dci="' + ci + '">&#128465;</button>' +
+        '</div>' +
+      '</div>' +
+      (cr.desc ? '<div class="crs-desc">' + esc(cr.desc) + '</div>' : '') +
+      '<span class="badge b-type" style="margin-bottom:10px;display:inline-flex">' + esc(cr.area || '') + '</span>' +
+      '<div class="crs-tl">' + dh + '</div>' +
+      '<div class="crs-spots">' + ch + '</div>' +
+    '</div>';
+  });
+  c.innerHTML = html;
+
+  c.querySelectorAll('[data-dci]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      var ci = parseInt(btn.dataset.dci, 10);
+      S.lastDel = {type: 'course', item: Object.assign({}, S.courses[ci]), index: ci};
+      S.courses.splice(ci, 1);
+      saveC(); renderCourses(); showToast('コースを削除しました', true);
+    });
+  });
+  c.querySelectorAll('[data-eci]').forEach(function(btn) {
+    btn.addEventListener('click', function(e) {
+      e.stopPropagation();
+      openCourseEditForm(parseInt(btn.dataset.eci, 10));
+    });
+  });
+}
+
+/* ─────────────────────────────────────────
+   RENDER: RECOMMEND
+───────────────────────────────────────── */
+function renderRecommend() {
+  var c  = document.getElementById('content');
+  var bh = '<button id="recBtn" style="padding:10px 20px;background:var(--accent);color:#fff;border:none;border-radius:8px;font-family:inherit;font-size:13px;font-weight:700;cursor:pointer">&#128260; 分析を更新</button>';
+  var hd = '<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:14px">' +
+    '<div><div style="font-family:\'Playfair Display\',serif;font-size:17px;color:var(--accent)">おすすめスポット</div>' +
+    '<div style="font-size:11px;color:var(--text-3);margin-top:2px">登録データから傾向を分析</div></div>' + bh + '</div>';
+
+  if (!S.spots.length) {
+    c.innerHTML = hd + '<div class="empty"><span class="empty-icon">&#127807;</span>' +
+      '<div class="empty-title">スポットがありません</div>' +
+      '<div class="empty-sub">リストにスポットを追加すると\n傾向を分析してご提案します</div></div>';
+    c.querySelector('#recBtn').addEventListener('click', fetchRec);
+    return;
+  }
+
+  if (!S.recData.length) {
+    c.innerHTML = hd + '<div class="empty"><span class="empty-icon">&#127807;</span>' +
+      '<div class="empty-title">まだ分析されていません</div>' +
+      '<div class="empty-sub">「分析を更新」ボタンで\nあなたの旅の好みを分析します</div></div>';
+    c.querySelector('#recBtn').addEventListener('click', fetchRec);
+    return;
+  }
+
+  var recs = S.recData.map(function(r, i) {
+    return '<div class="rec-card"><div class="rec-num">' + String(i+1).padStart(2,'0') + '</div>' +
+      '<div class="rec-body">' +
+        '<div style="display:flex;align-items:center;gap:6px;margin-bottom:4px">' +
+          '<div class="rec-name">' + esc(r.name) + '</div>' +
+          (r.type ? '<span class="badge b-type">' + esc(r.type) + '</span>' : '') +
+          (r.area ? '<span class="badge b-type" style="color:var(--text-3)">' + esc(r.area) + '</span>' : '') +
+        '</div>' +
+        '<div class="rec-reason">' + esc(r.reason || '') + '</div>' +
+        (r.trend ? '<div class="rec-trend">' + esc(r.trend) + '</div>' : '') +
+      '</div>' +
+      '<button class="rec-save" data-ri="' + i + '">&#65291; 保存</button>' +
+    '</div>';
+  }).join('');
+
+  c.innerHTML = hd + recs;
+  c.querySelector('#recBtn').addEventListener('click', fetchRec);
+  c.querySelectorAll('[data-ri]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var r = S.recData[parseInt(btn.dataset.ri, 10)];
+      openForm(null, {name:r.name, type:r.type||'観光', area:r.area||'', memo:r.reason||'', tags:[], prio:'wish'});
+    });
+  });
+}
+
+function fetchRec() {
+  if (!S.spots.length) return;
+
+  // ── 分析用データ収集 ──
+  var visited   = S.spots.filter(function(s){ return s.visited; });
+  var unvisited = S.spots.filter(function(s){ return !s.visited; });
+  var mustList  = unvisited.filter(function(s){ return s.prio==='must'; });
+  var wantList  = unvisited.filter(function(s){ return s.prio==='want'; });
+  var star3     = visited.filter(function(s){ return s.rating===3; });
+  var star2     = visited.filter(function(s){ return s.rating===2; });
+
+  // エリア別訪問数
+  var areaCnt = {};
+  visited.forEach(function(s){ areaCnt[s.area]=(areaCnt[s.area]||0)+1; });
+
+  // タグ頻度
+  var tagCnt = {};
+  S.spots.forEach(function(s){
+    (s.tags||[]).forEach(function(t){ tagCnt[t]=(tagCnt[t]||0)+1; });
+  });
+  var topTags = Object.keys(tagCnt).sort(function(a,b){return tagCnt[b]-tagCnt[a];}).slice(0,5);
+
+  // 種別頻度
+  var typeCnt = {};
+  S.spots.forEach(function(s){ typeCnt[s.type]=(typeCnt[s.type]||0)+1; });
+  var topType = Object.keys(typeCnt).sort(function(a,b){return typeCnt[b]-typeCnt[a];})[0]||'観光';
+
+  // ── 候補生成 ──
+  var candidates = [];
+
+  // ① 未訪問MUSTスポット（優先度最高）
+  mustList.forEach(function(s){
+    candidates.push({
+      name:   s.name,
+      type:   s.type,
+      area:   s.area,
+      reason: 'MUSTとして登録済みの未訪問スポットです。',
+      trend:  '&#128204; 行きたい度: MUST',
+      _pri:   0
+    });
+  });
+
+  // ② 未訪問WANTスポット
+  wantList.forEach(function(s){
+    candidates.push({
+      name:   s.name,
+      type:   s.type,
+      area:   s.area,
+      reason: 'WANTとして登録済みの未訪問スポットです。',
+      trend:  '&#128203; 行きたい度: WANT',
+      _pri:   1
+    });
+  });
+
+  // ③ ★3・★2スポットと同エリアの未訪問スポット
+  star3.concat(star2).forEach(function(s){
+    var stars = s.rating===3 ? '★★★' : '★★';
+    unvisited.forEach(function(u){
+      if(u.area===s.area && u.name!==s.name){
+        candidates.push({
+          name:   u.name,
+          type:   u.type,
+          area:   u.area,
+          reason: stars + '評価の「' + s.name + '」と同じ' + s.area + 'エリアのスポットです。',
+          trend:  '&#11088; 好きなエリア: ' + s.area,
+          _pri:   s.rating===3 ? 2 : 2.5
+        });
+      }
+    });
+  });
+
+  // ④ ★3・★2スポットと同種別の未訪問スポット
+  star3.concat(star2).forEach(function(s){
+    var stars = s.rating===3 ? '★★★' : '★★';
+    unvisited.forEach(function(u){
+      if(u.type===s.type && u.area!==s.area){
+        candidates.push({
+          name:   u.name,
+          type:   u.type,
+          area:   u.area,
+          reason: stars + '評価の「' + s.name + '」と同じ' + s.type + 'ジャンルのスポットです。',
+          trend:  '&#10024; 得意ジャンル: ' + s.type,
+          _pri:   s.rating===3 ? 3 : 3.5
+        });
+      }
+    });
+  });
+
+  // ⑤ 訪問の少ないエリアの未訪問スポット
+  var allAreas = AREAS.filter(function(a){
+    return S.spots.some(function(s){ return s.area===a; });
+  });
+  var minVisits = Math.min.apply(null, allAreas.map(function(a){ return areaCnt[a]||0; }));
+  allAreas.forEach(function(a){
+    if((areaCnt[a]||0)===minVisits){
+      unvisited.filter(function(u){ return u.area===a; }).forEach(function(u){
+        candidates.push({
+          name:   u.name,
+          type:   u.type,
+          area:   u.area,
+          reason: a + 'エリアはまだ訪問が少ないです。新しいエリアの開拓にいかがでしょう？',
+          trend:  '&#128506; 未開拓エリア',
+          _pri:   4
+        });
+      });
+    }
+  });
+
+  // ── 重複除去・シャッフル・上位10件 ──
+  var seen = {};
+  var unique = candidates.filter(function(c){
+    if(seen[c.name]) return false;
+    seen[c.name] = true;
+    return true;
+  });
+
+  // 同じ優先度内でシャッフル（毎回バラつかせる）
+  var byPri = {};
+  unique.forEach(function(c){
+    var p = c._pri;
+    if(!byPri[p]) byPri[p] = [];
+    byPri[p].push(c);
+  });
+  Object.keys(byPri).forEach(function(p){
+    var arr = byPri[p];
+    for(var i=arr.length-1;i>0;i--){
+      var j=Math.floor(Math.random()*(i+1));
+      var tmp=arr[i]; arr[i]=arr[j]; arr[j]=tmp;
+    }
+  });
+  var sorted = [];
+  [0,1,2,2.5,3,3.5,4].forEach(function(p){
+    if(byPri[p]) sorted=sorted.concat(byPri[p]);
+  });
+
+  S.recData = sorted.slice(0,10).map(function(c){
+    return {name:c.name, type:c.type, area:c.area, reason:c.reason, trend:c.trend};
+  });
+
+  // スポットが少なくて10件未満の場合のメッセージ
+  if(!S.recData.length){
+    S.recData = [{
+      name:'スポットを追加しましょう',
+      type:'',
+      area:'',
+      reason:'未訪問スポットがありません。リストにスポットを追加すると、傾向を分析してご提案します。',
+      trend:''
+    }];
+  }
+
+  renderRecommend();
+}
+/* ─────────────────────────────────────────
+   MAP
+───────────────────────────────────────── */
+// 高速道路マスタ
+// refs: OSMのrefタグ値、names: OSMのnameタグキーワード、exclude: 誤マッチ除外
+// 路線追加: 配列末尾にエントリを追加するだけ / 削除: 該当行を削除するだけ
+var EXPRESSWAYS = [
+  {id:'tomei',     refs:[],       names:['東名高速道路'],          exclude:['新東名'],      label:'東名高速',   color:'#2563EB', region:'both'},
+  {id:'shinTomei', refs:[],       names:['新東名高速道路'],         exclude:[],             label:'新東名高速',  color:'#60A5FA', region:'both'},
+  {id:'chuo',      refs:['E19'],  names:['中央自動車道'],           exclude:[],             label:'中央道',    color:'#0891B2', region:'both'},
+  {id:'kanetsu',   refs:['E17'],  names:['関越自動車道'],           exclude:[],             label:'関越道',    color:'#EA580C', region:'east'},
+  {id:'tohoku',    refs:['E4'],   names:['東北自動車道'],           exclude:[],             label:'東北道',    color:'#059669', region:'east'},
+  {id:'joban',     refs:['E6'],   names:['常磐自動車道'],           exclude:[],             label:'常磐道',    color:'#6366F1', region:'east'},
+  {id:'gaikan',    refs:['C3'],   names:['東京外環自動車道'],         exclude:[],             label:'外環道',    color:'#15803D', region:'east'},
+  {id:'keno',      refs:['C4'],   names:['首都圏中央連絡自動車道','圏央道'],exclude:[],        label:'圏央道',    color:'#7C3AED', region:'east'},
+  {id:'joshinetsu',refs:['E18'],  names:['上信越自動車道'],          exclude:[],             label:'上信越道',   color:'#F59E0B', region:'east'},
+  {id:'higashiKanto',refs:['E51'],names:['東関東自動車道'],          exclude:[],             label:'東関東道',   color:'#F43F5E', region:'east'},
+  {id:'kitaKanto', refs:['E50'],  names:['北関東自動車道'],          exclude:[],             label:'北関東道',   color:'#84CC16', region:'east'},
+  {id:'tateyama',  refs:['E14'],  names:['館山自動車道'],           exclude:[],             label:'館山道',    color:'#F97316', region:'east'},
+  {id:'hokuriku',  refs:['E8'],   names:['北陸自動車道'],           exclude:[],             label:'北陸道',    color:'#92400E', region:'both'},
+  {id:'meishin',   refs:[],       names:['名神高速道路'],           exclude:['新名神'],      label:'名神',     color:'#78716C', region:'both'},
+  {id:'shinMeishin',refs:[],      names:['新名神高速道路'],          exclude:[],             label:'新名神',    color:'#16A34A', region:'both'},
+  {id:'akita',     refs:['E7','E46'], names:['秋田自動車道'],           exclude:[],             label:'秋田道',    color:'#DB2777', region:'east'},
+  {id:'yamagata',  refs:['E48'],  names:['山形自動車道'],           exclude:[],             label:'山形道',    color:'#854D0E', region:'east'},
+  {id:'doo',       refs:['E5'],   names:['道央自動車道'],           exclude:[],             label:'道央道',    color:'#8B5CF6', region:'east'},
+  {id:'sanyo',     refs:['E2'],   names:['山陽自動車道'],           exclude:[],             label:'山陽道',    color:'#DC2626', region:'west'},
+  {id:'chugoku',   refs:['E2A'],  names:['中国自動車道'],           exclude:[],             label:'中国道',    color:'#0369A1', region:'west'},
+  {id:'kyushu',    refs:['E3'],   names:['九州自動車道'],           exclude:[],             label:'九州道',    color:'#7E22CE', region:'west'},
+  {id:'nagasaki',  refs:['E3A'],  names:['長崎自動車道'],           exclude:[],             label:'長崎道',    color:'#0D9488', region:'west'},
+  {id:'higashiKyushu',refs:['E10'],names:['東九州自動車道'],         exclude:[],             label:'東九州道',   color:'#65A30D', region:'west'},
+  {id:'oita',      refs:['E10A'], names:['大分自動車道'],           exclude:[],             label:'大分道',    color:'#D97706', region:'west'},
+  {id:'takamatsu', refs:['E11'],  names:['高松自動車道'],           exclude:[],             label:'高松道',    color:'#84CC16', region:'west'},
+  {id:'sanin',     refs:['E9'],   names:['山陰自動車道'],           exclude:[],             label:'山陰道',    color:'#9333EA', region:'west'}
+];
+
+var SHIN_COLORS = {
+  '東海道新幹線': {name:'東海道新幹線', color:'#1D4ED8'},
+  '山陽新幹線':  {name:'山陽新幹線',  color:'#3B82F6'},
+  '東北新幹線':  {name:'東北新幹線',  color:'#16A34A'},
+  '北海道新幹線': {name:'北海道新幹線', color:'#0891B2'},
+  '上越新幹線':  {name:'上越新幹線',  color:'#DC2626'},
+  '北陸新幹線':  {name:'北陸新幹線',  color:'#EA580C'},
+  '秋田新幹線':  {name:'秋田新幹線',  color:'#7C3AED'},
+  '山形新幹線':  {name:'山形新幹線',  color:'#DB2777'},
+  '九州新幹線':  {name:'九州新幹線',  color:'#D97706'},
+  '西九州新幹線': {name:'西九州新幹線', color:'#92400E'}
+};
+
+var BBOX_ALL  = '(24.0,122.0,46.0,146.0)';
+var BBOX_SHIN = '(24.0,122.0,46.0,146.0)';
+var EAST_LNG_MIN = 123.0, EAST_LNG_MAX = 146.0;
+var WEST_LNG_MIN = 122.0, WEST_LNG_MAX = 137.5;
+var LAT_MIN = 24.0, LAT_MAX = 46.0;
+
+var MAP_MODES = [
+  {id:0, label:'全国高速',  icon:'&#128506;', center:[37.0,136.0], zoom:5, type:'road',      bbox:BBOX_ALL},
+  {id:1, label:'東日本高速', icon:'&#128313;', center:[38.0,139.5], zoom:6, type:'road_east'},
+  {id:2, label:'西日本高速', icon:'&#128308;', center:[34.5,133.0], zoom:6, type:'road_west'},
+  {id:3, label:'新幹線',   icon:'&#128645;', center:[37.0,136.0], zoom:5, type:'shin',      bbox:BBOX_SHIN}
+];
+
+var ROUTE_CACHE = {};
+
+function buildRoadQuery(bbox, timeout) {
+  return '[out:json][timeout:' + (timeout || 120) + '];\n' +
+    'area["name"="\u65e5\u672c"]["admin_level"="2"]->.japan;\n' +
+    'way(area.japan)' + bbox + '["highway"="motorway"];\n' +
+    'out geom;';
+}
+
+function drawRoadLines(data, modeType) {
+  // EXPRESSWAYSマスタでグルーピング（refまたはnameで二重チェック、excludeで誤マッチ除外）
+  var groups = {};
+  EXPRESSWAYS.forEach(function(ex) { groups[ex.id] = []; });
+
+  (data.elements || []).forEach(function(el) {
+    if (el.type !== 'way' || !el.geometry) return;
+    var ref  = (el.tags && el.tags.ref)  || '';
+    var name = (el.tags && (el.tags['name:ja'] || el.tags.name)) || '';
+    EXPRESSWAYS.forEach(function(ex) {
+      // refマッチ（E1;E1A のような複数値に対応）
+      var refHit = ref.split(';').some(function(r) {
+        return ex.refs.indexOf(r.trim()) !== -1;
+      });
+      // nameマッチ（excludeキーワードを含む場合は除外）
+      var nameHit = ex.names.some(function(n) {
+        return name.indexOf(n) !== -1;
+      }) && (ex.exclude || []).every(function(e) {
+        return name.indexOf(e) === -1;
+      });
+      if (refHit || nameHit) {
+        groups[ex.id].push(el);
+      }
+    });
+    // マスタ外の路線は描画しない（グレー描画廃止）
+  });
+
+  var lhtml = '';
+  EXPRESSWAYS.forEach(function(ex) {
+    var els = groups[ex.id];
+    if (!els || !els.length) return;
+    els.forEach(function(el) {
+      var coords = el.geometry.map(function(p) { return [p.lat, p.lon]; });
+      if (coords.length < 2) return;
+      var line = L.polyline(coords, {
+        color: ex.color, weight: 2.5, opacity: 0.82,
+        lineJoin: 'round', lineCap: 'round'
+      }).addTo(S.map);
+      line.bindTooltip(ex.label, {permanent:false, sticky:true, direction:'top'});
+      S.routeLines.push(line);
+    });
+    // 凡例表示フィルタ（east/westモードでは対象外のregionを非表示）
+    var showLegend = true;
+    if (modeType === 'road_east' && ex.region === 'west') showLegend = false;
+    if (modeType === 'road_west' && ex.region === 'east') showLegend = false;
+    if (showLegend) {
+      lhtml += '<div class="rl-item"><div class="rl-line" style="background:' + ex.color + '"></div><span>' + ex.label + '</span></div>';
+    }
+  });
+
+  return lhtml;
+}
+
+function drawShinLines(data) {
+  var groups = {};
+  Object.keys(SHIN_COLORS).forEach(function(k) { groups[k] = []; });
+  (data.elements || []).forEach(function(el) {
+    if (el.type !== 'way' || !el.geometry) return;
+    var name = el.tags && (el.tags.name || el.tags['name:ja']);
+    if (!name) return;
+    Object.keys(SHIN_COLORS).forEach(function(k) {
+      if (name.indexOf(k) !== -1) groups[k].push(el);
+    });
+  });
+  var lhtml = '';
+  Object.keys(SHIN_COLORS).forEach(function(k) {
+    var els  = groups[k];
+    if (!els || !els.length) return;
+    var info = SHIN_COLORS[k];
+    els.forEach(function(el) {
+      var coords = el.geometry.map(function(p) { return [p.lat, p.lon]; });
+      if (coords.length < 2) return;
+      var line = L.polyline(coords, {
+        color: info.color, weight: 2.5, opacity: 0.88,
+        lineJoin: 'round', lineCap: 'round', dashArray: '7,5'
+      }).addTo(S.map);
+      line.bindTooltip(info.name, {permanent:false, sticky:true, direction:'top'});
+      S.routeLines.push(line);
+    });
+    lhtml += '<div class="rl-item"><div class="rl-line" style="background:' + info.color +
+      ';border-top:1px dashed rgba(255,255,255,0.7)"></div><span>' + info.name + '</span></div>';
+  });
+  return lhtml;
+}
+
+function showRouteLoading(mode) {
+  var lb = document.getElementById('routeLegendBody');
+  var lt = document.getElementById('routeLegendTitle');
+  var lg = document.getElementById('routeLegend');
+  if (lt) lt.textContent = mode.label;
+  if (lb) lb.innerHTML = '<div style="padding:8px 4px;color:var(--text-3);font-size:12px;display:flex;align-items:center;gap:8px">' +
+    '<div class="dots"><span></span><span></span><span></span></div>\u8aad\u307f\u8fbc\u307f\u4e2d...</div>';
+  if (lg) lg.classList.add('visible');
+  updateLegendPos();
+}
+
+function showRouteError() {
+  var lb = document.getElementById('routeLegendBody');
+  if (lb) lb.innerHTML = '<div style="padding:8px 4px;color:var(--danger);font-size:12px">\u53d6\u5f97\u30a8\u30e9\u30fc\u3002\u518d\u5ea6\u304a\u8a66\u3057\u304f\u3060\u3055\u3044\u3002</div>';
+}
+
+function renderRouteFromData(data, mode) {
+  var lb    = document.getElementById('routeLegendBody');
+  var lt    = document.getElementById('routeLegendTitle');
+  var lg    = document.getElementById('routeLegend');
+  var lhtml = '';
+  if (mode.type === 'road' || mode.type === 'road_east' || mode.type === 'road_west') {
+    lhtml = drawRoadLines(data, mode.type);
+  } else {
+    lhtml = drawShinLines(data);
+  }
+  if (lt) lt.textContent = mode.label;
+  if (lb) lb.innerHTML = lhtml || '<div style="padding:6px 4px;font-size:11px;color:var(--text-3)">\u30c7\u30fc\u30bf\u306a\u3057</div>';
+  if (lg) lg.classList.add('visible');
+  updateLegendPos();
+}
+
+function fetchOverpass(query, onSuccess, onError) {
+  fetch('https://overpass-api.de/api/interpreter', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: 'data=' + encodeURIComponent(query)
+  })
+  .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
+  .then(onSuccess)
+  .catch(function() {
+    fetch('https://overpass.kumi.systems/api/interpreter', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+      body: 'data=' + encodeURIComponent(query)
+    })
+    .then(function(r) { if (!r.ok) throw new Error(); return r.json(); })
+    .then(onSuccess)
+    .catch(onError);
+  });
+}
+
+function prefetchModes(modeIds) {
+  modeIds.forEach(function(modeId) {
+    if (ROUTE_CACHE[modeId]) return;
+    var mode = MAP_MODES[modeId];
+    if (mode.type === 'road_east' || mode.type === 'road_west') return;
+    var query = (mode.type === 'road')
+      ? buildRoadQuery(mode.bbox, 120)
+      : '[out:json][timeout:90];\nway' + mode.bbox + '["railway"="rail"]["highspeed"="yes"];\nout geom;';
+    fetchOverpass(query,
+      function(data) { ROUTE_CACHE[modeId] = data; },
+      function() {}
+    );
+  });
+}
+
+function filterByBbox(data, latMin, latMax, lngMin, lngMax) {
+  var result = {elements: []};
+  (data.elements || []).forEach(function(el) {
+    if (el.type !== 'way' || !el.geometry) return;
+    var inBox = el.geometry.some(function(p) {
+      return p.lat >= latMin && p.lat <= latMax && p.lon >= lngMin && p.lon <= lngMax;
+    });
+    if (inBox) result.elements.push(el);
+  });
+  return result;
+}
+
+function drawMode() {
+  // Clear existing lines
+  S.routeLines.forEach(function(l) { S.map.removeLayer(l); });
+  S.routeLines = [];
+
+  var lg = document.getElementById('routeLegend');
+  if (S.mapMode === null) {
+    if (lg) lg.classList.remove('visible');
+    updateLegendPos();
+    return;
+  }
+
+  var mode   = MAP_MODES[S.mapMode];
+  var modeId = S.mapMode;
+
+  // East / West: use cached national data if available
+  if (mode.type === 'road_east' || mode.type === 'road_west') {
+    if (ROUTE_CACHE[0]) {
+      var lngMin = mode.type === 'road_east' ? EAST_LNG_MIN : WEST_LNG_MIN;
+      var lngMax = mode.type === 'road_east' ? EAST_LNG_MAX : WEST_LNG_MAX;
+      var subset = filterByBbox(ROUTE_CACHE[0], LAT_MIN, LAT_MAX, lngMin, lngMax);
+      ROUTE_CACHE[modeId] = subset;
+      renderRouteFromData(subset, mode);
+      return;
+    }
+    // Fallback: fetch directly
+    var fbBbox = mode.type === 'road_east' ? '(24.0,130.0,46.0,146.0)' : '(24.0,122.0,36.5,137.5)';
+    showRouteLoading(mode);
+    fetchOverpass(buildRoadQuery(fbBbox, 120),
+      function(data) {
+        ROUTE_CACHE[modeId] = data;
+        if (S.mapMode === modeId) renderRouteFromData(data, mode);
+      },
+      function() { showRouteError(); }
+    );
+    return;
+  }
+
+  // Use cache if available
+  if (ROUTE_CACHE[modeId]) {
+    renderRouteFromData(ROUTE_CACHE[modeId], mode);
+    return;
+  }
+
+  // Build query and fetch
+  var query = (mode.type === 'road')
+    ? buildRoadQuery(mode.bbox, 120)
+    : '[out:json][timeout:90];\nway' + mode.bbox + '["railway"="rail"]["highspeed"="yes"];\nout geom;';
+
+  showRouteLoading(mode);
+  fetchOverpass(query,
+    function(data) {
+      ROUTE_CACHE[modeId] = data;
+      if (S.mapMode === modeId) renderRouteFromData(data, mode);
+    },
+    function() { showRouteError(); }
+  );
+}
+
+function updateLegendPos() {
+  var BASE = 16, GAP = 6;
+  var ml   = document.getElementById('mapWrap').querySelector('.map-legend');
+  var mlH  = ml ? ml.offsetHeight : 58;
+  var rl   = document.getElementById('routeLegend');
+  if (rl && rl.classList.contains('visible')) {
+    rl.style.bottom = (BASE + mlH + GAP) + 'px';
+  }
+}
+
+function renderMap() {
+  if (!S.map) {
+    S.map = L.map('leafletMap').setView([37.0, 137.0], 5);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+      attribution: '&copy; OpenStreetMap', maxZoom: 18
+    }).addTo(S.map);
+    S.cluster = L.markerClusterGroup({
+      iconCreateFunction: function(cl) {
+        return L.divIcon({
+          html: '<div style="background:#2B4A3A;color:#fff;border-radius:50%;width:32px;height:32px;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;box-shadow:0 2px 8px rgba(43,74,58,0.4)">' + cl.getChildCount() + '</div>',
+          iconSize: [32, 32], className: ''
+        });
+      }
+    });
+    S.map.addLayer(S.cluster);
+
+    // Mode buttons (exclusive selection)
+    document.querySelectorAll('[data-mode]').forEach(function(btn) {
+      btn.addEventListener('click', function() {
+        var m = parseInt(btn.dataset.mode, 10);
+        if (S.mapMode === m) {
+          S.mapMode = null;
+          document.querySelectorAll('[data-mode]').forEach(function(b) { b.classList.remove('on'); });
+        } else {
+          S.mapMode = m;
+          document.querySelectorAll('[data-mode]').forEach(function(b) {
+            b.classList.toggle('on', parseInt(b.dataset.mode, 10) === m);
+          });
+          S.map.setView(MAP_MODES[m].center, MAP_MODES[m].zoom);
+        }
+        drawMode();
+      });
+    });
+
+    // Home button
+    document.getElementById('mapResetBtn').addEventListener('click', function() {
+      S.map.setView([37.0, 137.0], 5);
+    });
+
+    // Background prefetch
+    setTimeout(function() { prefetchModes([0, 3]); }, 800);
+
+    // Legend collapse
+    var rlh = document.getElementById('routeLegendHeader');
+    if (rlh) {
+      rlh.addEventListener('click', function() {
+        var b = document.getElementById('routeLegendBody');
+        var t = document.getElementById('routeLegendToggle');
+        var collapsed = b.classList.toggle('collapsed');
+        if (t) t.textContent = collapsed ? '+' : '\u2212';
+        setTimeout(updateLegendPos, 10);
+      });
+    }
+
+    // Map search
+    var msi = document.getElementById('mapSearchInput');
+    var msb = document.getElementById('mapSearchBtn');
+    var msr = document.getElementById('mapSearchResults');
+
+    function doMapSearch() {
+      var q = msi.value.trim();
+      if (!q) return;
+      msb.textContent = '\u2026';
+      fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) +
+        '&format=json&limit=5&accept-language=ja', {headers:{'User-Agent':'TripMemoApp/1.0'}})
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        msb.textContent = '\ud83d\udd0d';
+        if (!data || !data.length) {
+          msr.innerHTML = '<div class="map-sr-item"><div class="map-sr-name" style="color:var(--text-3)">\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f</div></div>';
+          msr.classList.add('visible'); return;
+        }
+        var html = data.map(function(d, i) {
+          var name = d.display_name.split(',')[0];
+          return '<div class="map-sr-item" data-lat="' + d.lat + '" data-lon="' + d.lon + '" data-idx="' + i + '">' +
+            '<div class="map-sr-name">' + esc(name) + '</div>' +
+            '<div class="map-sr-addr">' + esc(d.display_name) + '</div></div>';
+        }).join('');
+        msr.innerHTML = html;
+        msr.classList.add('visible');
+        msr.querySelectorAll('[data-idx]').forEach(function(item) {
+          item.addEventListener('click', function() {
+            S.map.setView([parseFloat(item.dataset.lat), parseFloat(item.dataset.lon)], 13);
+            msr.classList.remove('visible');
+            msi.value = item.querySelector('.map-sr-name').textContent;
+          });
+        });
+      })
+      .catch(function() { msb.textContent = '\ud83d\udd0d'; });
+    }
+
+    if (msb) msb.addEventListener('click', doMapSearch);
+    if (msi) msi.addEventListener('keydown', function(e) { if (e.key === 'Enter') doMapSearch(); });
+    document.addEventListener('click', function(e) {
+      if (msr && !msr.contains(e.target) && e.target !== msi && e.target !== msb)
+        msr.classList.remove('visible');
+    });
+  }
+
+  // Refresh pins
+  S.cluster.clearLayers();
+  filtered().forEach(function(s) {
+    if (!s.lat || !s.lng) return;
+    var col  = s.visited ? '#2B4A3A' : '#7AAF8E';
+    var icon = L.divIcon({
+      html: '<div style="width:14px;height:14px;border-radius:50%;background:' + col + ';border:2.5px solid #fff;box-shadow:0 2px 6px rgba(0,0,0,0.25)"></div>',
+      iconSize: [14,14], iconAnchor: [7,7], className: ''
+    });
+    var pl = !s.visited
+      ? (s.prio === 'must'
+          ? ' <span style="background:#2B4A3A;color:#fff;padding:1px 6px;border-radius:20px;font-size:10px">MUST</span>'
+          : s.prio === 'want'
+            ? ' <span style="background:#E8F2EC;color:#3D6B55;padding:1px 6px;border-radius:20px;font-size:10px">WANT</span>'
+            : '')
+      : '';
+    var m = L.marker([s.lat, s.lng], {icon: icon});
+    m.bindPopup(
+      '<div class="pp-name">' + esc(s.name) + pl + '</div>' +
+      '<div class="pp-meta">' + esc(s.type) + ' \u00b7 ' + esc(s.area) +
+        (s.pref ? ' \u00b7 ' + esc(s.pref) : '') +
+        (s.addr ? '<br>' + esc(s.addr) : '') +
+        ' <span style="color:' + (s.visited ? '#2B4A3A' : '#9C9488') + '">' +
+        (s.visited ? '\u2713 \u8a2a\u554f\u6e08' : '\u25cb \u884c\u304d\u305f\u3044') + '</span></div>' +
+      (s.memo ? '<div class="pp-memo">' + esc(s.memo) + '</div>' : ''),
+      {maxWidth: 240}
+    );
+    S.cluster.addLayer(m);
+  });
+  setTimeout(function() { S.map.invalidateSize(); }, 100);
+}
+
+/* ─────────────────────────────────────────
+   DETAIL VIEW
+───────────────────────────────────────── */
+function openView(oi) {
+  var s = S.spots[oi]; if (!s) return;
+  var sa = [];
+  S.spots.forEach(function(x, i) { if (i !== oi && x.area === s.area) sa.push({s:x, i:i}); });
+  sa = sa.slice(0, 6);
+
+  var th = (s.tags || []).map(function(t) { return '<span class="tag">#' + esc(t) + '</span>'; }).join('');
+  var ph = '';
+  if (!s.visited) {
+    if      (s.prio === 'must') ph = '<span class="badge b-must">MUST</span>';
+    else if (s.prio === 'want') ph = '<span class="badge b-want">WANT</span>';
+  }
+  var sah = '';
+  if (sa.length) {
+    sah = '<div class="sa-section"><div class="sa-title">\u540c\u3058\u30a8\u30ea\u30a2\u306e\u30b9\u30dd\u30c3\u30c8\uff08' + esc(s.area) + '\uff09</div><div>';
+    sa.forEach(function(it) {
+      sah += '<span class="sa-chip" data-sai="' + it.i + '"><span class="sa-name">' + esc(it.s.name) + '</span>' +
+        '<span class="sa-sub"> ' + esc(it.s.type) + (it.s.visited ? ' \u2713' : '') +
+        (it.s.prio === 'must' ? ' MUST' : it.s.prio === 'want' ? ' WANT' : '') + '</span></span>';
+    });
+    sah += '</div></div>';
+  }
+
+  var dc = document.getElementById('sheetContent');
+  dc.innerHTML =
+    '<div class="sh-header"><div class="sh-title">\u30b9\u30dd\u30c3\u30c8\u8a73\u7d30</div><button class="sh-close" id="sc">&#10005;</button></div>' +
+    '<div class="vw-date-row">' +
+      '<div class="vw-date">' + (s.visitedDate || '\u672a\u8a2a\u554f') + '</div>' +
+      (s.visited ? '<div class="stars" id="starRow">' +
+        [1,2,3].map(function(n) {
+          return '<span class="star' + ((s.rating||0) >= n ? ' on' : '') + '" data-star="' + n + '">\u2605</span>';
+        }).join('') + '</div>' : '') +
+    '</div>' +
+    '<div class="vw-name">' + esc(s.name) + '</div>' +
+    '<div class="vw-meta">' + ph +
+      '<span class="badge b-type">' + esc(s.type) + '</span>' +
+      '<span class="badge b-type">' + esc(s.area) + '</span>' +
+      (s.pref ? '<span class="badge b-type">' + esc(s.pref) + '</span>' : '') +
+      '<span class="badge ' + (s.visited ? 'b-vis' : 'b-unvis') + '">' +
+        (s.visited ? '&#10003; \u8a2a\u554f\u6e08' : '&#9711; \u884c\u304d\u305f\u3044') + '</span>' +
+    '</div>' +
+    (s.addr ? '<div style="font-size:12px;color:var(--text-3);margin-bottom:10px">&#128205; ' + esc(s.addr) + '</div>' : '') +
+    (s.memo ? '<div class="vw-body">' + esc(s.memo) + '</div>' : '') +
+    (th ? '<div class="vw-tags">' + th + '</div>' : '') +
+    '<div class="vw-actions">' +
+      '<button class="btn-edit" id="vedit">&#9999; \u7de8\u96c6</button>' +
+      '<div class="vw-actions-sub">' +
+        '<button class="btn-tog" id="vtog">' + (s.visited ? '&#128260; \u672a\u8a2a\u554f\u306b\u623b\u3059' : '&#10003; \u8a2a\u554f\u6e08\u307f\u306b\u3059\u308b') + '</button>' +
+        '<button class="btn-del" id="vdel">&#128465;</button>' +
+      '</div>' +
+    '</div>' +
+    sah;
+
+  document.getElementById('sc').addEventListener('click', closeSheet);
+  document.getElementById('vedit').addEventListener('click', function() { openForm(oi); });
+  document.getElementById('vtog').addEventListener('click', function() {
+    S.spots[oi].visited     = !S.spots[oi].visited;
+    S.spots[oi].visitedDate = S.spots[oi].visited ? new Date().toISOString().slice(0,7) : null;
+    S.spots[oi].exportedAt  = null;
+    save(); closeSheet(); renderStats(); renderContent();
+  });
+  document.getElementById('vdel').addEventListener('click', function() {
+    closeSheet(); setTimeout(function() { delSpot(oi); }, 200);
+  });
+  dc.querySelectorAll('[data-sai]').forEach(function(chip) {
+    chip.addEventListener('click', function() {
+      var xi = parseInt(chip.dataset.sai, 10);
+      closeSheet(); setTimeout(function() { openView(xi); }, 300);
+    });
+  });
+  var sr = document.getElementById('starRow');
+  if (sr) {
+    sr.querySelectorAll('[data-star]').forEach(function(st) {
+      st.addEventListener('click', function() {
+        var n = parseInt(st.dataset.star, 10);
+        S.spots[oi].rating = (S.spots[oi].rating === n ? 0 : n);
+        save();
+        var r = S.spots[oi].rating;
+        sr.querySelectorAll('[data-star]').forEach(function(x) {
+          x.classList.toggle('on', parseInt(x.dataset.star, 10) <= r);
+        });
+      });
+    });
+  }
+  openSheet();
+}
+
+/* ─────────────────────────────────────────
+   FORM
+───────────────────────────────────────── */
+function openForm(oi, pf) {
+  var isNew = (oi === null || oi === undefined);
+  var src   = isNew ? (pf || {}) : (S.spots[oi] || {});
+  var s = {
+    name: src.name || '', type: src.type || '観光', area: src.area || '関東甲信越',
+    pref: src.pref || '', addr: src.addr || '', tags: src.tags || [], memo: src.memo || '',
+    lat: src.lat || '', lng: src.lng || '', visited: src.visited || false,
+    visitedDate: src.visitedDate || null, prio: src.prio || 'wish', id: src.id || ''
+  };
+  var sp = s.prio;
+  var ph = PRIOS.map(function(p) {
+    return '<div class="fs-sitem' + (sp === p.k ? ' on' : '') + '" data-prio="' + p.k + '">' +
+      '<span>' + p.l + '</span><span style="font-size:12px;color:var(--text-3)">' + p.d + '</span></div>';
+  }).join('');
+
+  var dc = document.getElementById('sheetContent');
+  dc.innerHTML =
+    '<div class="sh-header"><div class="sh-title">' + (isNew ? '\u30b9\u30dd\u30c3\u30c8\u3092\u8ffd\u52a0' : '\u30b9\u30dd\u30c3\u30c8\u3092\u7de8\u96c6') + '</div><button class="sh-close" id="sc">&#10005;</button></div>' +
+    '<div class="err-msg" id="em">&#9888; \u30b9\u30dd\u30c3\u30c8\u540d\u3092\u5165\u529b\u3057\u3066\u304f\u3060\u3055\u3044</div>' +
+    fld('\u30b9\u30dd\u30c3\u30c8\u540d',
+      '<div class="field-wb"><input type="text" id="fN" placeholder="\u4f8b\uff1a\u8efd\u4e95\u6ca2\u3001\u7531\u5e03\u9662..." value="' + esc(s.name) + '" maxlength="60">' +
+      '<button class="geo-btn" id="geoBtn">&#128269; \u691c\u7d22</button></div>' +
+      '<div class="geo-results" id="geoR" style="display:none"></div>') +
+    '<div class="field-row">' +
+      fld('\u7a2e\u5225', '<select id="fT">' + TYPES.map(function(t) { return '<option' + (s.type === t ? ' selected' : '') + '>' + esc(t) + '</option>'; }).join('') + '</select>') +
+      fld('\u30a8\u30ea\u30a2', '<select id="fA">' + AREAS.map(function(a) { return '<option' + (s.area === a ? ' selected' : '') + '>' + esc(a) + '</option>'; }).join('') + '</select>') +
+    '</div>' +
+    fld('\u90fd\u9053\u5e9c\u770c', '<input type="text" id="fP" placeholder="\u7fa4\u99ac\u770c" value="' + esc(s.pref) + '">') +
+    fld('\u4f4f\u6240', '<input type="text" id="fAddr" placeholder="\u81ea\u52d5\u5165\u529b\u3055\u308c\u307e\u3059" value="' + esc(s.addr) + '">') +
+    '<div class="field-row">' +
+      fld('\u7def\u5ea6', '<input type="number" id="fLat" step="0.0001" placeholder="35.681" value="' + esc(String(s.lat)) + '">') +
+      fld('\u7d4c\u5ea6', '<input type="number" id="fLng" step="0.0001" placeholder="139.767" value="' + esc(String(s.lng)) + '">') +
+    '</div>' +
+    fld('\u30bf\u30b0',
+    '<div class="tag-chips" id="fTgChips"></div>' +
+    '<div class="tag-input-row">' +
+      '<input type="text" id="fTgInput" placeholder="\u30bf\u30b0\u3092\u5165\u529b..." autocomplete="off">' +
+      '<button class="tag-add-btn" id="fTgAdd">&#65291; \u8ffd\u52a0</button>' +
+    '</div>' +
+    '<div class="tag-suggest" id="fTgSuggest"></div>') +    fld('\u30e1\u30e2', '<textarea id="fM" placeholder="\u884c\u304d\u305f\u3044\u7406\u7531\u3001\u6ce8\u610f\u70b9\u306a\u3069...">' + esc(s.memo) + '</textarea>') +
+    (!s.visited ? '<div class="field"><label>\u884c\u304d\u305f\u3044\u5ea6</label><div class="fs-sort" id="prioSel">' + ph + '</div></div>' : '') +
+    '<button class="btn-save" id="fSave">' + (isNew ? '\u8ffd\u52a0\u3059\u308b' : '\u66f4\u65b0\u3059\u308b') + '</button>';
+
+  document.getElementById('sc').addEventListener('click', closeSheet);
+
+  var ps = document.getElementById('prioSel');
+  if (ps) {
+    ps.querySelectorAll('[data-prio]').forEach(function(el) {
+      el.addEventListener('click', function() {
+        sp = el.dataset.prio;
+        ps.querySelectorAll('[data-prio]').forEach(function(x) { x.classList.remove('on'); });
+        el.classList.add('on');
+      });
+    });
+  }
+
+  document.getElementById('geoBtn').addEventListener('click', function() {
+    var nm   = document.getElementById('fN').value.trim();
+    var pref = document.getElementById('fP').value.trim();
+    if (!nm) { document.getElementById('em').classList.add('show'); return; }
+    doGeo(nm + (pref ? ' ' + pref : ''));
+  });
+
+  document.getElementById('fSave').addEventListener('click', function() {
+    var nm = document.getElementById('fN').value.trim();
+    if (!nm) { document.getElementById('em').classList.add('show'); document.getElementById('fN').focus(); return; }
+    document.getElementById('em').classList.remove('show');
+    var obj = {
+      id:          isNew ? uuid() : s.id,
+      name:        nm,
+      type:        document.getElementById('fT').value,
+      area:        document.getElementById('fA').value,
+      pref:        document.getElementById('fP').value.trim(),
+      addr:        document.getElementById('fAddr').value.trim(),
+      tags:        (function(){ var chips=document.getElementById('fTgChips'); if(!chips) return []; return Array.prototype.slice.call(chips.querySelectorAll('.tag-chip')).map(function(el){ return el.dataset.tag; }); })(),
+      memo:        document.getElementById('fM').value.trim(),
+      lat:         parseFloat(document.getElementById('fLat').value) || 0,
+      lng:         parseFloat(document.getElementById('fLng').value) || 0,
+      visited:     s.visited,
+      visitedDate: s.visitedDate,
+      prio:        s.visited ? s.prio : sp,
+      exportedAt:  null
+    };
+    if (isNew) S.spots.unshift(obj); else S.spots[oi] = obj;
+    save(); closeSheet(); renderStats(); renderContent();
+  });
+
+  // タグUI初期化
+  (function(){
+    var chips  = document.getElementById('fTgChips');
+    var input  = document.getElementById('fTgInput');
+    var addBtn = document.getElementById('fTgAdd');
+    var suggest= document.getElementById('fTgSuggest');
+    if(!chips||!input||!addBtn||!suggest) return;
+
+    // 既存タグをチップとして表示
+    s.tags.forEach(function(t){ if(t) addTagChip(t); });
+
+    // 全スポットから過去タグを収集
+    function getAllTags(){
+      var all={};
+      S.spots.forEach(function(sp){
+        (sp.tags||[]).forEach(function(t){ if(t) all[t]=true; });
+      });
+      return Object.keys(all);
+    }
+
+    // チップ追加
+    function addTagChip(tag){
+      // 重複チェック
+      var existing = Array.prototype.slice.call(chips.querySelectorAll('.tag-chip'))
+        .map(function(el){ return el.dataset.tag; });
+      if(existing.indexOf(tag)!==-1) return;
+      var chip = document.createElement('span');
+      chip.className='tag-chip';
+      chip.dataset.tag=tag;
+      chip.innerHTML=esc(tag)+'<button class="tag-chip-del" data-tag="'+esc(tag)+'">&#10005;</button>';
+      chip.querySelector('.tag-chip-del').addEventListener('click',function(e){
+        e.stopPropagation();
+        chips.removeChild(chip);
+      });
+      chips.appendChild(chip);
+    }
+
+    // サジェスト表示
+    function showSuggest(q){
+      if(!q){ suggest.classList.remove('visible'); suggest.innerHTML=''; return; }
+      var all=getAllTags();
+      // 既に追加済みのタグを除外
+      var added=Array.prototype.slice.call(chips.querySelectorAll('.tag-chip'))
+        .map(function(el){ return el.dataset.tag; });
+      var hits=all.filter(function(t){
+        return t.indexOf(q)!==-1 && added.indexOf(t)===-1;
+      }).slice(0,7);
+      if(!hits.length){ suggest.classList.remove('visible'); suggest.innerHTML=''; return; }
+      suggest.innerHTML=hits.map(function(t){
+        return '<div class="tag-suggest-item" data-stag="'+esc(t)+'">&#127991; '+esc(t)+'</div>';
+      }).join('');
+      suggest.classList.add('visible');
+      suggest.querySelectorAll('[data-stag]').forEach(function(item){
+        item.addEventListener('click',function(){
+          addTagChip(item.dataset.stag);
+          input.value='';
+          suggest.classList.remove('visible');
+          suggest.innerHTML='';
+        });
+      });
+    }
+
+    // タグ追加アクション
+    function doAdd(){
+      var val=input.value.trim();
+      if(!val) return;
+      addTagChip(val);
+      input.value='';
+      suggest.classList.remove('visible');
+      suggest.innerHTML='';
+    }
+
+    input.addEventListener('input',function(){ showSuggest(input.value.trim()); });
+    input.addEventListener('keydown',function(e){ if(e.key==='Enter'){ e.preventDefault(); doAdd(); } });
+    addBtn.addEventListener('click', doAdd);
+
+    // サジェスト外タップで閉じる
+    document.addEventListener('click',function handler(e){
+      if(!suggest.contains(e.target)&&e.target!==input){
+        suggest.classList.remove('visible');
+        suggest.innerHTML='';
+        document.removeEventListener('click',handler);
+      }
+    });
+  })();
+
+  openSheet();
+  setTimeout(function() { var e = document.getElementById('fN'); if (e) e.focus(); }, 420);
+}
+
+function fld(l, h) {
+  return '<div class="field"><label>' + l + '</label>' + h + '</div>';
+}
+
+function doGeo(q) {
+  var btn = document.getElementById('geoBtn');
+  var res = document.getElementById('geoR');
+  if (btn) { btn.disabled = true; btn.textContent = '\u691c\u7d22\u4e2d\u2026'; }
+  if (res) { res.style.display = 'none'; res.innerHTML = ''; }
+  fetch('https://nominatim.openstreetmap.org/search?q=' + encodeURIComponent(q) +
+    '&format=json&addressdetails=1&limit=5&countrycodes=jp&accept-language=ja',
+    {headers: {'User-Agent': 'TripMemoApp/1.0'}}
+  )
+  .then(function(r) { return r.json(); })
+  .then(function(data) {
+    if (btn) { btn.disabled = false; btn.textContent = '\ud83d\udd0d \u691c\u7d22'; }
+    if (!data || !data.length) {
+      if (res) { res.style.display = 'block'; res.innerHTML = '<div class="geo-item"><div class="geo-item-name" style="color:var(--text-3)">\u898b\u3064\u304b\u308a\u307e\u305b\u3093\u3067\u3057\u305f</div></div>'; }
+      return;
+    }
+    var html = data.map(function(d, i) {
+      return '<div class="geo-item" data-gi="' + i + '">' +
+        '<div class="geo-item-name">' + esc(d.display_name.split(',')[0]) + '</div>' +
+        '<div class="geo-item-addr">' + esc(d.display_name) + '</div></div>';
+    }).join('');
+    if (res) { res.style.display = 'block'; res.innerHTML = html; }
+    res.querySelectorAll('[data-gi]').forEach(function(item) {
+      item.addEventListener('click', function() {
+        var d    = data[parseInt(item.dataset.gi, 10)];
+        var fa   = document.getElementById('fAddr');
+        var fl   = document.getElementById('fLat');
+        var fn   = document.getElementById('fLng');
+        var fp   = document.getElementById('fP');
+        if (fa) fa.value = d.display_name;
+        if (fl) fl.value = parseFloat(d.lat).toFixed(4);
+        if (fn) fn.value = parseFloat(d.lon).toFixed(4);
+        var addr = d.address || {};
+        var pref = addr.province || addr.state || '';
+        if (pref && fp && !fp.value) fp.value = pref;
+        if (res) res.style.display = 'none';
+        showToast('\u4f4f\u6240\u30fb\u5ea7\u6a19\u3092\u81ea\u52d5\u5165\u529b\u3057\u307e\u3057\u305f', false);
+      });
+    });
+  })
+  .catch(function() {
+    if (btn) { btn.disabled = false; btn.textContent = '\ud83d\udd0d \u691c\u7d22'; }
+    showToast('\u691c\u7d22\u306b\u5931\u6557\u3057\u307e\u3057\u305f', false);
+  });
+}
+
+/* ─────────────────────────────────────────
+   FILTER SHEET
+───────────────────────────────────────── */
+function setMapSearchBarVisible(visible) {
+  var bar = document.getElementById('mapSearchBar');
+  if (bar) bar.style.visibility = visible ? '' : 'hidden';
+}
+
+function openFilterSheet() {
+  // マップタブ時は検索バーを隠す
+  if (S.tab === 'map') setMapSearchBarVisible(false);
+  var dc = document.getElementById('sheetContent');
+  var ac = ['all'].concat(AREAS).map(function(a) {
+    return '<button class="fs-chip' + (S.fArea === a ? ' on' : '') + '" data-fa="' + esc(a) + '">' + (a === 'all' ? '\u3059\u3079\u3066' : a) + '</button>';
+  }).join('');
+  var tc = ['all'].concat(TYPES).map(function(t) {
+    return '<button class="fs-chip' + (S.fType === t ? ' on' : '') + '" data-ft="' + esc(t) + '">' + (t === 'all' ? '\u3059\u3079\u3066' : t) + '</button>';
+  }).join('');
+  var vc = [{k:'all',l:'\u3059\u3079\u3066'},{k:'unvisited',l:'\u672a\u8a2a\u554f\u306e\u307f'},{k:'visited',l:'\u8a2a\u554f\u6e08\u307f\u306e\u307f'}].map(function(v) {
+    return '<button class="fs-chip' + (S.fVis === v.k ? ' on' : '') + '" data-fv="' + v.k + '">' + v.l + '</button>';
+  }).join('');
+  var pc = [{k:'all',l:'\u3059\u3079\u3066'},{k:'must',l:'MUST'},{k:'want',l:'WANT'},{k:'wish',l:'WISH'}].map(function(p) {
+    return '<button class="fs-chip' + (S.fPrio === p.k ? ' on' : '') + '" data-fp="' + p.k + '">' + p.l + '</button>';
+  }).join('');
+  var rc = [{k:'all',l:'\u3059\u3079\u3066'},{k:'3',l:'&#9733;&#9733;&#9733;'},{k:'2',l:'&#9733;&#9733;'},{k:'1',l:'&#9733;'}].map(function(p) {
+    return '<button class="fs-chip' + (S.fStar === p.k ? ' on' : '') + '" data-fr="' + p.k + '">' + p.l + '</button>';
+  }).join('');
+  var sc = SORTS.map(function(s) {
+    return '<div class="fs-sitem' + (S.sort === s.k ? ' on' : '') + '" data-sort="' + s.k + '"><span>' + s.i + '</span><span>' + s.l + '</span></div>';
+  }).join('');
+
+  dc.innerHTML =
+    '<div class="sh-header"><div class="sh-title">\u7d5e\u308a\u8fbc\u307f\u30fb\u4e26\u3073\u66ff\u3048</div><button class="sh-close" id="sc">&#10005;</button></div>' +
+    '<div class="fs-sec"><div class="fs-lbl">\u30a8\u30ea\u30a2</div><div class="fs-chips">' + ac + '</div></div>' +
+    '<div class="fs-sec"><div class="fs-lbl">\u7a2e\u5225</div><div class="fs-chips">' + tc + '</div></div>' +
+    '<div class="fs-sec"><div class="fs-lbl">\u8a2a\u554f\u72b6\u614b</div><div class="fs-chips">' + vc + '</div></div>' +
+    '<div class="fs-sec"><div class="fs-lbl">\u884c\u304d\u305f\u3044\u5ea6</div><div class="fs-chips">' + pc + '</div></div>' +
+    '<div class="fs-sec"><div class="fs-lbl">\u8a2a\u554f\u6e08\u307f \u8a55\u4fa1</div><div class="fs-chips">' + rc + '</div></div>' +
+    '<div class="fs-sec"><div class="fs-lbl">\u4e26\u3073\u66ff\u3048</div><div class="fs-sort">' + sc + '</div></div>' +
+    '<button class="fs-reset" id="fsR">\u3059\u3079\u3066\u30ea\u30bb\u30c3\u30c8</button>';
+
+  document.getElementById('sc').addEventListener('click', closeSheet);
+  document.getElementById('fsR').addEventListener('click', function() {
+    S.fArea = 'all'; S.fType = 'all'; S.fVis = 'all'; S.fPrio = 'all'; S.fStar = 'all'; S.sort = 'added';
+    closeSheet(); renderTopBar(); renderContent();
+  });
+  dc.querySelectorAll('[data-fa]').forEach(function(b) { b.addEventListener('click', function() { S.fArea = b.dataset.fa; applyF(dc); }); });
+  dc.querySelectorAll('[data-ft]').forEach(function(b) { b.addEventListener('click', function() { S.fType = b.dataset.ft; applyF(dc); }); });
+  dc.querySelectorAll('[data-fv]').forEach(function(b) { b.addEventListener('click', function() { S.fVis  = b.dataset.fv; applyF(dc); }); });
+  dc.querySelectorAll('[data-fp]').forEach(function(b) { b.addEventListener('click', function() { S.fPrio = b.dataset.fp; applyF(dc); }); });
+  dc.querySelectorAll('[data-fr]').forEach(function(b) { b.addEventListener('click', function() { S.fStar = b.dataset.fr; applyF(dc); }); });
+  dc.querySelectorAll('[data-sort]').forEach(function(b) { b.addEventListener('click', function() { S.sort = b.dataset.sort; applyF(dc); }); });
+  openSheet();
+}
+
+function applyF(dc) {
+  dc.querySelectorAll('[data-fa]').forEach(function(b) { b.classList.toggle('on', b.dataset.fa === S.fArea); });
+  dc.querySelectorAll('[data-ft]').forEach(function(b) { b.classList.toggle('on', b.dataset.ft === S.fType); });
+  dc.querySelectorAll('[data-fv]').forEach(function(b) { b.classList.toggle('on', b.dataset.fv === S.fVis);  });
+  dc.querySelectorAll('[data-fp]').forEach(function(b) { b.classList.toggle('on', b.dataset.fp === S.fPrio); });
+  dc.querySelectorAll('[data-fr]').forEach(function(b) { b.classList.toggle('on', b.dataset.fr === S.fStar); });
+  dc.querySelectorAll('[data-sort]').forEach(function(b) { b.classList.toggle('on', b.dataset.sort === S.sort); });
+  renderTopBar(); renderContent();
+}
+
+/* ─────────────────────────────────────────
+   COURSE FORM
+───────────────────────────────────────── */
+function openCourseEditForm(ci) {
+  var cr  = S.courses[ci];
+  if (!cr) return;
+  var dc  = document.getElementById('sheetContent');
+  var curType = 'all';
+  var selIds  = (cr.days || []).map(function(d) { return d.spotId; });
+
+  function getAreaOrder(selectedArea) {
+    var neighbors = AREA_NEIGHBORS[selectedArea] || [];
+    return [selectedArea].concat(neighbors);
+  }
+
+  function renderEditChecklist() {
+    var selArea  = document.getElementById('cA') ? document.getElementById('cA').value : AREAS[0];
+    var areaOrder = getAreaOrder(selArea);
+    var sorted = S.spots.slice().sort(function(a,b) {
+      var ai=areaOrder.indexOf(a.area), bi=areaOrder.indexOf(b.area);
+      if (ai!==bi) return ai-bi;
+      var ap=a.pref||'', bp=b.pref||'';
+      if (ap!==bp) return ap < bp ? -1 : ap > bp ? 1 : 0;
+      var an=a.name||'',bn=b.name||''; return an < bn ? -1 : an > bn ? 1 : 0;
+    });
+    var searchQ = document.getElementById('cSearch') ? document.getElementById('cSearch').value.trim() : '';
+    var filtered = sorted.filter(function(s) {
+      var typeOk   = curType==='all' || s.type===curType;
+      var searchOk = !searchQ || s.name.indexOf(searchQ)!==-1;
+      return typeOk && searchOk;
+    });
+    var cl = document.getElementById('cChecklist');
+    if (!cl) return;
+    // 再描画前に現在のチェック状態を保存
+    var prevChecked = {};
+    cl.querySelectorAll('.cs-ck').forEach(function(cb) { prevChecked[cb.dataset.id]=cb.checked; });
+    if (!filtered.length) {
+      cl.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-3);text-align:center">該当なし</div>';
+      return;
+    }
+    var html=''; var lastArea=null;
+    filtered.forEach(function(s) {
+      if (s.area!==lastArea) {
+        html+='<div style="padding:6px 13px 4px;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.08em;background:var(--surface-2);border-bottom:1px solid var(--border)">'+esc(s.area)+(s.pref?' / '+esc(s.pref):'' )+'</div>';
+        lastArea=s.area;
+      }
+      // 初回は既存コースのselIds、再描画後はprevCheckedを使用
+      var isChecked = (s.id in prevChecked) ? prevChecked[s.id] : (selIds.indexOf(s.id)!==-1);
+      html+='<label class="cl-item" style="cursor:pointer">'+
+        '<input type="checkbox" class="cs-ck" data-id="'+s.id+'"'+(isChecked?' checked':'')+'>'+
+        '<span class="cl-name">'+esc(s.name)+'</span>'+
+        '<span class="cl-area">'+esc(s.type)+'</span>'+
+        '</label>';
+    });
+    cl.innerHTML=html;
+  }
+
+  var typeFilters=['all'].concat(TYPES);
+  var filterHtml=typeFilters.map(function(t){
+    return '<button class="course-filter-chip'+(t==='all'?' on':'')+'" data-cft="'+esc(t)+'">'+(t==='all'?'すべて':t)+'</button>';
+  }).join('');
+
+  // エリアのoption（既存コースのエリアを初期選択）
+  var areaOpts = AREAS.map(function(a){
+    return '<option'+(a===cr.area?' selected':'')+'>'+esc(a)+'</option>';
+  }).join('');
+
+  dc.innerHTML =
+    '<div class="course-fixed">' +
+      '<div class="sh-header" style="padding-top:20px">' +
+        '<div class="sh-title">コースを編集</div>' +
+        '<button class="sh-close" id="sc">&#10005;</button>' +
+      '</div>'+
+      fld('コース名','<input type="text" id="cN" placeholder="例：山陰・山陽 3泊4日" maxlength="60" value="'+esc(cr.name)+'">')+
+      fld('説明','<input type="text" id="cD" placeholder="コースのテーマや特徴" value="'+esc(cr.desc||'')+'">')+
+      fld('エリア','<select id="cA">'+areaOpts+'</select>')+
+      '<div class="field" style="margin-bottom:8px"><label>含めるスポット（選択順がDay順）</label>'+
+        '<div class="course-search-wrap"><input type="text" id="cSearch" class="course-search" placeholder="スポット名で検索..." autocomplete="off"></div>'+
+        '<div class="course-filter">'+filterHtml+'</div>'+
+      '</div>'+
+    '</div>'+
+    '<div class="course-list"><div class="checklist" id="cChecklist"></div></div>'+
+    '<div class="course-footer"><button class="btn-save" id="cSave">保存する</button></div>';
+
+  document.getElementById('sc').addEventListener('click', closeSheet);
+  document.getElementById('cA').addEventListener('change', function() { renderEditChecklist(); });
+  document.getElementById('cSearch').addEventListener('input', function() { renderEditChecklist(); });
+
+  dc.querySelectorAll('[data-cft]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      curType=btn.dataset.cft;
+      dc.querySelectorAll('[data-cft]').forEach(function(b){ b.classList.toggle('on',b.dataset.cft===curType); });
+      renderEditChecklist();
+    });
+  });
+
+  document.getElementById('cSave').addEventListener('click', function() {
+    var nm = document.getElementById('cN').value.trim();
+    if (!nm) { document.getElementById('cN').focus(); return; }
+    var sel=[];
+    document.querySelectorAll('.cs-ck:checked').forEach(function(cb){ sel.push(cb.dataset.id); });
+    var days=sel.map(function(sid,i){ return {day:i+1, spotId:sid, memo:''}; });
+    S.courses[ci]={id:cr.id, name:nm, desc:document.getElementById('cD').value.trim(), area:document.getElementById('cA').value, days:days};
+    saveC(); closeSheet(); renderCourses();
+    showToast('コースを更新しました', false);
+  });
+
+  openSheet();
+  document.getElementById('sheet').classList.add('sheet-course');
+  renderEditChecklist();
+}
+
+function openCourseForm() {
+  var dc = document.getElementById('sheetContent');
+  var curType = 'all';
+
+  function getAreaOrder(selectedArea) {
+    var neighbors = AREA_NEIGHBORS[selectedArea] || [];
+    return [selectedArea].concat(neighbors);
+  }
+
+  function renderChecklist() {
+    var selArea = document.getElementById('cA') ? document.getElementById('cA').value : AREAS[0];
+    var areaOrder = getAreaOrder(selArea);
+    // エリア順 → 都道府県順 → 名前順でソート
+    var sorted = S.spots.slice().sort(function(a, b) {
+      var ai = areaOrder.indexOf(a.area);
+      var bi = areaOrder.indexOf(b.area);
+      if (ai !== bi) return ai - bi;
+      var ap = a.pref || '', bp = b.pref || '';
+      if (ap !== bp) return ap < bp ? -1 : ap > bp ? 1 : 0;
+      var an=a.name||'',bn=b.name||''; return an < bn ? -1 : an > bn ? 1 : 0;
+    });
+    // 種別・検索フィルター適用
+    var searchQ = document.getElementById('cSearch') ? document.getElementById('cSearch').value.trim() : '';
+    var filtered = sorted.filter(function(s) {
+      var typeOk = curType === 'all' || s.type === curType;
+      var searchOk = !searchQ || s.name.indexOf(searchQ) !== -1;
+      return typeOk && searchOk;
+    });
+    var cl = document.getElementById('cChecklist');
+    if (!cl) return;
+
+    // 再描画前に現在のチェック状態を保存
+    var prevChecked = {};
+    cl.querySelectorAll('.cs-ck').forEach(function(cb) {
+      prevChecked[cb.dataset.id] = cb.checked;
+    });
+
+    if (!filtered.length) {
+      cl.innerHTML = '<div style="padding:12px;font-size:13px;color:var(--text-3);text-align:center">該当なし</div>';
+      return;
+    }
+    var html = '';
+    var lastArea = null;
+    filtered.forEach(function(s) {
+      if (s.area !== lastArea) {
+        html += '<div style="padding:6px 13px 4px;font-size:10px;font-weight:700;color:var(--text-3);letter-spacing:0.08em;background:var(--surface-2);border-bottom:1px solid var(--border)">' + esc(s.area) + (s.pref ? ' / ' + esc(s.pref) : '') + '</div>';
+        lastArea = s.area;
+      }
+      var isChecked = prevChecked[s.id] || false;
+      html += '<label class="cl-item" style="cursor:pointer">' +
+        '<input type="checkbox" class="cs-ck" data-id="' + s.id + '"' + (isChecked?' checked':'') + '>' +
+        '<span class="cl-name">' + esc(s.name) + '</span>' +
+        '<span class="cl-area">' + esc(s.type) + '</span>' +
+        '</label>';
+    });
+    cl.innerHTML = html;
+  }
+
+  // 種別フィルターチップ生成
+  var typeFilters = ['all'].concat(TYPES);
+  var filterHtml = typeFilters.map(function(t) {
+    return '<button class="course-filter-chip' + (t==='all'?' on':'') + '" data-cft="' + esc(t) + '">' + (t==='all'?'すべて':t) + '</button>';
+  }).join('');
+
+  dc.innerHTML =
+    '<div class="course-fixed">' +
+      '<div class="sh-header" style="padding-top:20px">' +
+        '<div class="sh-title">コースを作成</div>' +
+        '<button class="sh-close" id="sc">&#10005;</button>' +
+      '</div>' +
+      fld('コース名', '<input type="text" id="cN" placeholder="例：山陰・山陽 3泊4日" maxlength="60">') +
+      fld('説明', '<input type="text" id="cD" placeholder="コースのテーマや特徴">') +
+      fld('エリア', '<select id="cA">' + AREAS.map(function(a) { return '<option>' + esc(a) + '</option>'; }).join('') + '</select>') +
+      '<div class="field" style="margin-bottom:8px"><label>含めるスポット（選択順がDay順）</label>' +
+        '<div class="course-search-wrap"><input type="text" id="cSearch" class="course-search" placeholder="スポット名で検索..." autocomplete="off"></div>' +
+        '<div class="course-filter">' + filterHtml + '</div>' +
+      '</div>' +
+    '</div>' +
+    '<div class="course-list"><div class="checklist" id="cChecklist"></div></div>' +
+    '<div class="course-footer"><button class="btn-save" id="cSave">作成する</button></div>';
+
+  document.getElementById('sc').addEventListener('click', closeSheet);
+
+  // エリア変更 → リスト再描画
+  document.getElementById('cA').addEventListener('change', function() { renderChecklist(); });
+
+  // スポット名検索 → リスト再描画
+  document.getElementById('cSearch').addEventListener('input', function() { renderChecklist(); });
+
+  // 種別フィルター
+  dc.querySelectorAll('[data-cft]').forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      curType = btn.dataset.cft;
+      dc.querySelectorAll('[data-cft]').forEach(function(b) { b.classList.toggle('on', b.dataset.cft === curType); });
+      renderChecklist();
+    });
+  });
+
+  document.getElementById('cSave').addEventListener('click', function() {
+    var nm = document.getElementById('cN').value.trim();
+    if (!nm) { document.getElementById('cN').focus(); return; }
+    var sel = [];
+    document.querySelectorAll('.cs-ck:checked').forEach(function(cb) { sel.push(cb.dataset.id); });
+    var days = sel.map(function(sid, i) { return {day: i+1, spotId: sid, memo: ''}; });
+    S.courses.push({id:uuid(), name:nm, desc:document.getElementById('cD').value.trim(), area:document.getElementById('cA').value, days:days});
+    saveC(); closeSheet(); renderCourses();
+  });
+
+  openSheet();
+  document.getElementById('sheet').classList.add('sheet-course');
+  renderChecklist();
+}
+
+/* ─────────────────────────────────────────
+   DELETE / SWIPE
+───────────────────────────────────────── */
+function delSpot(oi) {
+  S.lastDel = {item: Object.assign({}, S.spots[oi]), index: oi};
+  S.spots.splice(oi, 1);
+  save(); renderStats(); renderContent(); showToast('\u524a\u9664\u3057\u307e\u3057\u305f', true);
+}
+
+function swStart(e, el) {
+  S.sw.x0 = e.touches[0].clientX;
+  S.sw.x1 = e.touches[0].clientX;
+  S.sw.y0 = e.touches[0].clientY;
+  S.sw.moved = false;
+  if (S.sw.el && S.sw.el !== el) {
+    S.sw.el.style.transition = 'transform 0.2s ease';
+    S.sw.el.style.transform  = '';
+    S.sw.el.parentNode.classList.remove('is-swiping');
+    S.sw.el = null;
+  }
+}
+
+function swMove(e, el) {
+  S.sw.x1 = e.touches[0].clientX;
+  var dx = S.sw.x1 - S.sw.x0;
+  var dy = e.touches[0].clientY - S.sw.y0;
+  if (Math.abs(dx) > 10) S.sw.moved = true;
+  if (dx < 0 && Math.abs(dx) > Math.abs(dy) && Math.abs(dx) > 16) {
+    el.parentNode.classList.add('is-swiping');
+    el.style.transition = 'none';
+    el.style.transform  = 'translateX(' + Math.max(dx, -80) + 'px)';
+  }
+}
+
+function swEnd(e, el) {
+  var d = S.sw.x1 - S.sw.x0;
+  el.style.transition = 'transform 0.22s ease';
+  if (d < -60) {
+    el.parentNode.classList.add('is-swiping');
+    el.style.transform = 'translateX(-80px)';
+    S.sw.el = el;
+  } else {
+    el.parentNode.classList.remove('is-swiping');
+    el.style.transform = '';
+    S.sw.el = null;
+  }
+  setTimeout(function() { S.sw.moved = false; }, 50);
+}
+
+/* ─────────────────────────────────────────
+   TOAST
+───────────────────────────────────────── */
+function showToast(msg, wu) {
+  var t   = document.getElementById('toast');
+  var txt = document.getElementById('toastTxt');
+  var ub  = document.getElementById('toastUndo');
+  txt.textContent  = msg;
+  ub.style.display = wu ? '' : 'none';
+  t.classList.add('show');
+  clearTimeout(S.toastT);
+  S.toastT = setTimeout(function() { t.classList.remove('show'); S.lastDel = null; }, 4500);
+}
+
+/* ─────────────────────────────────────────
+   SHEET
+───────────────────────────────────────── */
+function openSheet()  { document.getElementById('overlay').classList.add('show');    document.getElementById('sheet').classList.add('show'); }
+function closeSheet() { var sh=document.getElementById('sheet'); sh.classList.remove('show'); sh.classList.remove('sheet-course'); document.getElementById('overlay').classList.remove('show'); setMapSearchBarVisible(true); }
+
+/* ─────────────────────────────────────────
+   SETTINGS
+───────────────────────────────────────── */
+function openGuide() {
+  var dc = document.getElementById('sheetContent');
+  dc.innerHTML =
+    '<div class="sh-header"><div class="sh-title">使い方ガイド</div><button class="sh-close" id="sc">&#10005;</button></div>' +
+    guide_html();
+  document.getElementById('sc').addEventListener('click', closeSheet);
+  // 各セクションのアコーディオン
+  dc.querySelectorAll('.guide-sec-head').forEach(function(hd) {
+    hd.addEventListener('click', function() {
+      var body = hd.nextElementSibling;
+      var arrow = hd.querySelector('.guide-arrow');
+      var open = body.style.display !== 'none';
+      body.style.display = open ? 'none' : '';
+      if (arrow) arrow.textContent = open ? '▶' : '▼';
+    });
+  });
+}
+
+function guide_html() {
+  return '' +
+    // PR
+    '<div class="guide-pr-box">' +
+      '<div class="guide-pr-title">Trip Memoとは</div>' +
+      '<div class="guide-pr-body">旅行の計画・記録を一元管理するスマートフォン向けアプリです。行きたい場所の登録から訪問記録・コース作成まで、旅に関わる情報をすっきり整理できます。</div>' +
+    '</div>' +
+    // 課題→解決
+    '<div class="guide-problems">' +
+      guide_pr('行きたい場所がバラバラで管理しにくい','エリア・種別・行きたい度で整理できる') +
+      guide_pr('どこに行ったか忘れてしまう','訪問済・★評価で記録を残せる') +
+      guide_pr('旅のルートを考えるのが大変','コース機能Day別の行程を作れる') +
+    '</div>' +
+    // セクション
+    guide_section('01', 'リスト・スポット管理',
+      '<div class="guide-steps">' +
+        guide_step(1,'「＋」ボタンからスポットを新規追加') +
+        guide_step(2,'スポット名を入力→「検索」で住所・座標を自動入力') +
+        guide_step(3,'種別・エリア・行きたい度（MUST/WANT/WISH）を設定') +
+        guide_step(4,'タグを入力（過去に使ったタグがサジェスト表示されます）') +
+        guide_step(5,'「追加する」で保存完了') +
+      '</div>' +
+      '<div class="guide-tags">' +
+        guide_tag('MUST','左ライン濃緑') +
+        guide_tag('WANT','左ライン薄緑') +
+        guide_tag('★評価','訪問済のみ設定可') +
+        guide_tag('左スワイプ','削除ボタンが表示') +
+      '</div>'
+    ) +
+    guide_section('02', 'マップ',
+      '<div class="guide-body">登録スポットが地図上にピン表示されます。訪問済は濃い緑、未訪問は薄い緑で区別されます。</div>' +
+      '<div class="guide-tags">' +
+        guide_tag('路線表示','高速道路・新幹線を色分けで表示') +
+        guide_tag('地名検索','地名・施設名で地図を移動') +
+        guide_tag('絞り込み','フィルターで表示スポットを絞込み') +
+      '</div>'
+    ) +
+    guide_section('03', 'コース作成',
+      '<div class="guide-body">複数のスポットをまとめてモデルコースを作成できます。</div>' +
+      '<div class="guide-steps">' +
+        guide_step(1,'コースタブ右下のボタンから新規作成') +
+        guide_step(2,'コース名・エリアを入力') +
+        guide_step(3,'スポットを選択（種別フィルターで絞込み可能）') +
+        guide_step(4,'「作成する」で保存') +
+      '</div>'
+    ) +
+    guide_section('04', 'バックアップ',
+      '<div class="guide-body">データはスマートフォン内に保存されます。定期的なバックアップを推奨します。</div>' +
+      '<div class="guide-tags">' +
+        guide_tag('エクスポート','設定→JSONファイルで保存') +
+        guide_tag('インポート','ファルから読み込み（既存データは消えません）') +
+        guide_tag('NAS連携','自動バックアップも可能') +
+      '</div>'
+    ) +
+    guide_section('05', 'Tips',
+      guide_tip(
+        '地名が検索で出てこないとき',
+        'Googleマップで住所を調べてコピーしてペースト。番地以降は削除すると検索の確実性が上がります。大まかな地理的理解での運用を前提としています。'
+      ) +
+      guide_tip(
+        'データの保存場所',
+        'データは綯にお使いの端末内（ブラウザのLocalStorage）に保存されます。外部サーバーや第三者に送信・公開されることは一切ありません。'
+      ) +
+      guide_tip(
+        'データ消失にご注意',
+        'ブラウザのキャッシュ削除や端末の初期化でデータが消える場合があります。定期的なエクスポートをお勧めします。'
+      )
+    );
+}
+
+function guide_pr(problem, solution) {
+  return '<div class="guide-pr-row">' +
+    '<div class="guide-pr-prob">' + problem + '</div>' +
+    '<div class="guide-pr-arr">→</div>' +
+    '<div class="guide-pr-sol">' + solution + '</div>' +
+  '</div>';
+}
+
+function guide_section(num, title, body) {
+  return '<div class="guide-section">' +
+    '<div class="guide-sec-head">' +
+      '<span class="guide-sec-num">' + num + '</span>' +
+      '<span class="guide-sec-title">' + title + '</span>' +
+      '<span class="guide-arrow">▼</span>' +
+    '</div>' +
+    '<div class="guide-sec-body">' + body + '</div>' +
+  '</div>';
+}
+
+function guide_step(n, text) {
+  return '<div class="guide-step"><span class="guide-step-num">' + n + '</span>' + text + '</div>';
+}
+
+function guide_tag(label, desc) {
+  return '<div class="guide-tag-row"><span class="guide-tag-label">' + label + '</span><span class="guide-tag-desc">' + desc + '</span></div>';
+}
+
+function guide_tip(title, body) {
+  return '<div class="guide-tip-card">' +
+    '<div class="guide-tip-title">' + title + '</div>' +
+    '<div class="guide-tip-body">' + body + '</div>' +
+  '</div>';
+}
+
+function openSettings() {
+  var cfg = loadNas() || {ip:'', port:'5001', user:'', pass:'', folder:''};
+  var dc  = document.getElementById('sheetContent');
+  dc.innerHTML =
+    '<div class="sh-header"><div class="sh-title">\u8a2d\u5b9a\u30fb\u30d0\u30c3\u30af\u30a2\u30c3\u30d7</div><button class="sh-close" id="sc">&#10005;</button></div>' +
+    '<div class="set-sec">\u30d0\u30c3\u30af\u30a2\u30c3\u30d7</div>' +
+    '<div class="set-desc">\u30b9\u30dd\u30c3\u30c8\u30fb\u30b3\u30fc\u30b9\u5168\u4ef6\u3092JSON\u3067\u4fdd\u5b58\u3002NAS\u304c\u8a2d\u5b9a\u6e08\u306e\u5834\u5408\u306fNAS\u3078\u9001\u4fe1\u3057\u3001\u672a\u8a2d\u5b9a\u30fb\u5931\u6557\u6642\u306fiPhone\u306e\u30d5\u30a1\u30a4\u30eb\u30a2\u30d7\u30ea\u3078\u4fdd\u5b58\u3055\u308c\u307e\u3059\u3002\u4e16\u4ee3\u306f\u6700\u5927' + MG + '\u4ef6\u3067\u81ea\u52d5\u30ed\u30fc\u30c6\u30fc\u30b7\u30e7\u30f3\u3002</div>' +
+    '<div class="btn-row"><button class="btn-exp" id="expBtn">&#11014; \u30a8\u30af\u30b9\u30dd\u30fc\u30c8</button></div>' +
+    '<hr class="set-hr">' +
+    '<div class="set-sec">\u30ea\u30b9\u30c8\u30a2</div>' +
+    '<div class="set-desc">\u30d0\u30c3\u30af\u30a2\u30c3\u30d7JSON\u3092\u8aad\u307f\u8fbc\u307f\u307e\u3059\u3002\u65e2\u5b58\u30c7\u30fc\u30bf\u306f\u305d\u306e\u307e\u307e\u6b8b\u3057\u3001\u65b0\u3057\u3044\u30b9\u30dd\u30c3\u30c8\u30fb\u30b3\u30fc\u30b9\u306e\u307f\u8ffd\u52a0\u3057\u307e\u3059\u3002</div>' +
+    '<div class="btn-row"><button class="btn-sub" id="impBtn">&#11015; \u30a4\u30f3\u30dd\u30fc\u30c8</button></div>' +
+    '<hr class="set-hr">' +
+    '<button class="btn-sub" id="guideBtn" style="width:100%;margin-bottom:4px">\u4f7f\u3044\u65b9\u30ac\u30a4\u30c9</button>' +
+    '<hr class="set-hr">' +
+    '<div class="set-sec">NAS\u8a2d\u5b9a\uff08Synology\uff09</div>' +
+    '<div class="set-desc">Synology NAS\u306b\u76f4\u63a5\u30d0\u30c3\u30af\u30a2\u30c3\u30d7\u3059\u308b\u5834\u5408\u306e\u307f\u8a2d\u5b9a\u3057\u3066\u304f\u3060\u3055\u3044\u3002\u672a\u8a2d\u5b9a\u3067\u3082\u30a8\u30af\u30b9\u30dd\u30fc\u30c8\u306f\u52d5\u4f5c\u3057\u307e\u3059\u3002</div>' +
+    fld('NAS IP\u30a2\u30c9\u30ec\u30b9', '<input type="text" id="nIp" placeholder="192.168.0.170" value="' + esc(cfg.ip) + '" inputmode="url" autocomplete="off">') +
+    fld('\u30dd\u30fc\u30c8\u756a\u53f7', '<input type="text" id="nPt" placeholder="5001" value="' + esc(cfg.port) + '" inputmode="numeric">') +
+    fld('\u30e6\u30fc\u30b6\u30fc\u540d', '<input type="text" id="nUs" placeholder="API_User" value="' + esc(cfg.user) + '" autocomplete="off">') +
+    fld('\u30d1\u30b9\u30ef\u30fc\u30c9', '<input type="password" id="nPw" placeholder="&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;&#8226;" value="' + esc(cfg.pass) + '" autocomplete="off">') +
+    fld('\u4fdd\u5b58\u5148\u30d5\u30a9\u30eb\u30c0', '<input type="text" id="nFo" placeholder="homes/user/TripMemoBackup" value="' + esc(cfg.folder) + '" autocomplete="off">') +
+    '<button class="btn-save" id="nSave">NAS\u8a2d\u5b9a\u3092\u4fdd\u5b58</button>';
+
+  document.getElementById('sc').addEventListener('click', closeSheet);
+  document.getElementById('expBtn').addEventListener('click', doExport);
+  document.getElementById('impBtn').addEventListener('click', function() { document.getElementById('importFile').click(); });
+  document.getElementById('nSave').addEventListener('click', function() {
+    saveNas({
+      ip:     document.getElementById('nIp').value.trim(),
+      port:   document.getElementById('nPt').value.trim() || '5001',
+      user:   document.getElementById('nUs').value.trim(),
+      pass:   document.getElementById('nPw').value,
+      folder: document.getElementById('nFo').value.trim()
+    });
+    showToast('NAS\u8a2d\u5b9a\u3092\u4fdd\u5b58\u3057\u307e\u3057\u305f', false);
+  });
+  document.getElementById('guideBtn').addEventListener('click', openGuide);
+  openSheet();
+}
+
+/* ─────────────────────────────────────────
+   EXPORT / IMPORT
+───────────────────────────────────────── */
+function doExport() {
+  var btn = document.getElementById('expBtn');
+  if (btn) { btn.disabled = true; btn.textContent = '\u9001\u4fe1\u4e2d\u2026'; }
+  var cfg = loadNas();
+  var has = cfg && cfg.ip && cfg.user && cfg.pass && cfg.folder;
+  var fn  = 'tripmemo_backup_' + nowStr() + '.json';
+  var json = JSON.stringify({exported: new Date().toISOString(), spots: S.spots, courses: S.courses}, null, 2);
+
+  function done(toNas) {
+    markExp(); closeSheet();
+    showToast(toNas ? 'NAS\u306b\u30d0\u30c3\u30af\u30a2\u30c3\u30d7\u3057\u307e\u3057\u305f \u2713' : '\u30a8\u30af\u30b9\u30dd\u30fc\u30c8\u3057\u307e\u3057\u305f \u2713', false);
+  }
+  if (has) {
+    exportNas(cfg, fn, json, function(ok) {
+      if (ok) { done(true); }
+      else { dlJson(fn, json); markExp(); closeSheet(); showToast('NAS\u5931\u6557 \u2192 \u30d5\u30a1\u30a4\u30eb\u306b\u4fdd\u5b58\u3057\u307e\u3057\u305f', false); }
+    });
+  } else { dlJson(fn, json); done(false); }
+}
+
+function markExp() {
+  var now = new Date().toISOString();
+  S.spots.forEach(function(s) { s.exportedAt = now; });
+  save(); renderContent();
+}
+
+function exportNas(cfg, fn, json, cb) {
+  var base = 'https://' + cfg.ip + ':' + cfg.port + '/webapi';
+  fetch(base + '/auth.cgi?api=SYNO.API.Auth&version=3&method=login&account=' +
+    encodeURIComponent(cfg.user) + '&passwd=' + encodeURIComponent(cfg.pass) +
+    '&session=FileStation&format=sid')
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.success) throw new Error('login');
+    var sid  = d.data.sid;
+    var blob = new Blob([json], {type:'application/json'});
+    var fd   = new FormData();
+    fd.append('api','SYNO.FileStation.Upload'); fd.append('version','2'); fd.append('method','upload');
+    fd.append('path', '/' + cfg.folder.replace(/^\//, ''));
+    fd.append('create_parents','true'); fd.append('overwrite','true');
+    fd.append('*sid', sid); fd.append('file', blob, fn);
+    return fetch(base + '/entry.cgi', {method:'POST', body:fd})
+      .then(function(r) { return r.json(); })
+      .then(function(up) {
+        if (!up.success) throw new Error('upload');
+        pruneNas(base, sid, cfg.folder, function() { logoutNas(base, sid); cb(true); });
+      });
+  })
+  .catch(function() { cb(false); });
+}
+
+function pruneNas(base, sid, folder, done) {
+  fetch(base + '/entry.cgi?api=SYNO.FileStation.List&version=2&method=list&folder_path=/' +
+    encodeURIComponent(folder.replace(/^\//, '')) +
+    '&pattern=tripmemo_backup**.json&sort_by=name&sort_direction=ASC&_sid=' + encodeURIComponent(sid))
+  .then(function(r) { return r.json(); })
+  .then(function(d) {
+    if (!d.success) { done(); return; }
+    var files = d.data.files || [];
+    var toDel = files.slice(0, Math.max(0, files.length - MG));
+    if (!toDel.length) { done(); return; }
+    fetch(base + '/entry.cgi', {
+      method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'},
+      body: 'api=SYNO.FileStation.Delete&version=2&method=start&path=' +
+        encodeURIComponent(JSON.stringify(toDel.map(function(f) { return f.path; }))) +
+        '&_sid=' + encodeURIComponent(sid)
+    }).then(function() { done(); }).catch(function() { done(); });
+  })
+  .catch(function() { done(); });
+}
+
+function logoutNas(base, sid) {
+  fetch(base + '/auth.cgi?api=SYNO.API.Auth&version=1&method=logout&session=FileStation&_sid=' + encodeURIComponent(sid))
+    .catch(function() {});
+}
+
+function dlJson(fn, json) {
+  var blob = new Blob([json], {type:'application/json'});
+  var url  = URL.createObjectURL(blob);
+  var a    = document.createElement('a');
+  a.href = url; a.download = fn; document.body.appendChild(a); a.click();
+  setTimeout(function() { document.body.removeChild(a); URL.revokeObjectURL(url); }, 1000);
+}
+
+/* ─────────────────────────────────────────
+   EVENT LISTENERS
+───────────────────────────────────────── */
+document.getElementById('toastUndo').addEventListener('click', function() {
+  if (!S.lastDel) return;
+  if (S.lastDel.type === 'course') {
+    S.courses.splice(S.lastDel.index, 0, S.lastDel.item);
+    saveC(); renderCourses();
+  } else {
+    S.spots.splice(S.lastDel.index, 0, S.lastDel.item);
+    save(); renderStats(); renderContent();
+  }
+  S.lastDel = null;
+  document.getElementById('toast').classList.remove('show');
+  clearTimeout(S.toastT);
+});
+
+document.getElementById('overlay').addEventListener('click', closeSheet);
+
+document.querySelectorAll('.tab-btn').forEach(function(btn) {
+  btn.addEventListener('click', function() {
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    btn.classList.add('active');
+    S.tab = btn.dataset.tab;
+    renderTopBar(); renderContent();
+  });
+});
+
+document.getElementById('fab').addEventListener('click', function() { openForm(null); });
+document.getElementById('fabC').addEventListener('click', openCourseForm);
+document.getElementById('settingsBtn').addEventListener('click', openSettings);
+document.getElementById('filterBtn').addEventListener('click', openFilterSheet);
+document.getElementById('mapFilterBtn').addEventListener('click', openFilterSheet);
+
+document.getElementById('searchInput').addEventListener('input', function() {
+  renderContent();
+  document.getElementById('searchClear').classList.toggle('visible', this.value.length > 0);
+});
+document.getElementById('searchClear').addEventListener('click', function() {
+  document.getElementById('searchInput').value = '';
+  renderContent();
+  document.getElementById('searchClear').classList.remove('visible');
+  document.getElementById('searchInput').focus();
+});
+
+document.getElementById('importFile').addEventListener('change', function(e) {
+  var file = e.target.files[0]; if (!file) return;
+  var reader = new FileReader();
+  reader.onload = function(ev) {
+    try {
+      var data = JSON.parse(ev.target.result);
+      var iS   = data.spots || (Array.isArray(data) ? data : []);
+      var iC   = data.courses || [];
+      var eid  = {}; S.spots.forEach(function(s) { eid[s.id] = true; });
+      var as   = 0; iS.forEach(function(s) { if (!s.id) s.id = uuid(); if (!eid[s.id]) { S.spots.push(s); as++; } });
+      var ecid = {}; S.courses.forEach(function(c) { ecid[c.id] = true; });
+      var ac   = 0; iC.forEach(function(c) { if (!c.id) c.id = uuid(); if (!ecid[c.id]) { S.courses.push(c); ac++; } });
+      save(); saveC(); renderStats(); renderContent();
+      showToast('\u30b9\u30dd\u30c3\u30c8' + as + '\u4ef6\u30fb\u30b3\u30fc\u30b9' + ac + '\u4ef6\u3092\u8ffd\u52a0\u3057\u307e\u3057\u305f', false);
+    } catch(err) { showToast('\u30d5\u30a1\u30a4\u30eb\u306e\u8aad\u307f\u8fbc\u307f\u306b\u5931\u6557\u3057\u307e\u3057\u305f', false); }
+    e.target.value = '';
+  };
+  reader.readAsText(file);
+});
+
+/* ─────────────────────────────────────────
+   INIT
+───────────────────────────────────────── */
+loadData();
+renderStats();
+renderTopBar();
+renderContent();
+
+}());
+</script>
+</body>
+</html>
